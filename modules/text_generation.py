@@ -6,12 +6,14 @@ import re
 import time
 import traceback
 import concurrent.futures
+import requests
 
 import numpy as np
 import torch
 import transformers
 from transformers import LogitsProcessorList, is_torch_xpu_available
 from duckduckgo_search import DDGS
+from bs4 import BeautifulSoup
 
 import modules.shared as shared
 from modules.callbacks import (
@@ -67,28 +69,56 @@ def generate_reply(*args, **kwargs):
         shared.generation_lock.release()
 
 
+def get_webpage_content(url: str) -> str:
+    response = requests.get(url)
+
+    soup = BeautifulSoup(response.content, 'html.parser')
+    content = ""
+    for p in soup.find_all('p'):
+        content += p.get_text() + "\n"
+    return content
+
+
 def generate_search_reply(*args, **kwargs):
     shared.generation_lock.acquire()
     future_to_search_term = {}
+    future_to_url = {}
     web_search = False
+    read_webpage = False
     matched_patterns = {}
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             for result in _generate_reply(*args, **kwargs):
-                search_re_match = re.search(f"Search_web.*end", result)
+
+                search_re_match = re.search(f"Search_web: \".*\"", result)
                 if search_re_match is not None:
                     matched_pattern = search_re_match.group(0)
                     if matched_patterns.get(matched_pattern):
                         continue
                     web_search = True
+                    args[1]["web_search"] = True
                     matched_patterns[matched_pattern] = True
                     search_term = matched_pattern.split(" ", 1)[1].rstrip("end").replace("\"", "")
                     print(f"Searching for {search_term}...")
                     future_to_search_term[executor.submit(search_duckduckgo, search_term)] = search_term
+
+                search_re_match = re.search(f"Open_link: \".*\"", result)
+                if search_re_match is not None:
+                    matched_pattern = search_re_match.group(0)
+                    if matched_patterns.get(matched_pattern):
+                        continue
+                    read_webpage = True
+                    args[1]["web_search"] = True
+                    matched_patterns[matched_pattern] = True
+                    url = matched_pattern.split(" ", 1)[1].replace("\"", "")
+                    print(f"Reading {url}...")
+                    future_to_url[executor.submit(get_webpage_content, url)] = url
+
                 yield result
+
             if web_search:
                 result += "\n```"
-                result += "Search tool:\n"
+                result += "\nSearch tool:\n"
                 yield result
                 for i, future in enumerate(concurrent.futures.as_completed(future_to_search_term)):
                     search_term = future_to_search_term[future]
@@ -98,6 +128,22 @@ def generate_search_reply(*args, **kwargs):
                         print(f'{search_term} generated an exception: {str(exc)}')
                     else:
                         result += dict_list_to_pretty_str(data)
+                        yield result
+                        time.sleep(0.041666666666666664)
+                result += "```"
+                yield result
+            elif read_webpage:
+                result += "\n```"
+                result += "\nSearch tool:\n"
+                yield result
+                for i, future in enumerate(concurrent.futures.as_completed(future_to_url)):
+                    url = future_to_url[future]
+                    try:
+                        data = future.result()
+                    except Exception as exc:
+                        print(f'{url} generated an exception: {str(exc)}')
+                    else:
+                        result += data
                         yield result
                         time.sleep(0.041666666666666664)
                 result += "```"
@@ -152,7 +198,8 @@ def _generate_reply(question, state, stopping_strings=None, is_chat=False, escap
             reply = html.escape(reply)
 
         reply, stop_found = apply_stopping_strings(reply, all_stop_strings)
-        if state.get("websearch_template") and re.search("Search_web.*\n", reply) is not None:  # marcel
+        if (state.get("websearch_template") and (re.search("Search_web: \".*\"", reply) is not None
+                                                 or re.search(f"Open_link: \".*\"", reply) is not None)):  # marcel
             break
         if is_stream:
             cur_time = time.time()
