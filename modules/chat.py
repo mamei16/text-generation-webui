@@ -17,6 +17,7 @@ from modules.html_generator import chat_html_wrapper, make_thumbnail
 from modules.logging_colors import logger
 from modules.text_generation import (
     generate_reply,
+    generate_search_reply,
     get_encoded_length,
     get_max_prompt_length
 )
@@ -77,6 +78,9 @@ def generate_chat_prompt(user_input, state, **kwargs):
     also_return_rows = kwargs.get('also_return_rows', False)
     history = kwargs.get('history', state['history'])['internal']
     is_instruct = state['mode'] == 'instruct'
+
+    if state['mode'] == 'instruct' or state['mode'] == 'chat-instruct':  # marcel
+        state["websearch_template"] = True
 
     # Find the maximum prompt size
     max_length = get_max_prompt_length(state)
@@ -234,7 +238,12 @@ def chatbot_wrapper(text, state, regenerate=False, _continue=False, loading_mess
 
     # Generate
     reply = None
-    for j, reply in enumerate(generate_reply(prompt, state, stopping_strings=stopping_strings, is_chat=True)):
+    if state.get("websearch_template"):  # marcel
+        print("websearch_template is enabled for this reply.")
+        reply_generator = generate_search_reply
+    else:
+        reply_generator = generate_reply
+    for j, reply in enumerate(reply_generator(prompt, state, stopping_strings=stopping_strings, is_chat=True)):
 
         # Extract the reply
         visible_reply = re.sub("(<USER>|<user>|{{user}})", state['name1'], reply)
@@ -392,6 +401,7 @@ def start_new_chat(state):
             history['visible'] += [['', apply_extensions('output', greeting, state, is_chat=True)]]
 
     unique_id = datetime.now().strftime('%Y%m%d-%H-%M-%S')
+    history["unique_id"] = unique_id
     save_history(history, unique_id, state['character_menu'], state['mode'])
 
     return history

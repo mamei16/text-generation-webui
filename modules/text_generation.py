@@ -5,11 +5,14 @@ import random
 import re
 import time
 import traceback
+import concurrent.futures
+import pprint
 
 import numpy as np
 import torch
 import transformers
 from transformers import LogitsProcessorList, is_torch_xpu_available
+from duckduckgo_search import DDGS
 
 import modules.shared as shared
 from modules.callbacks import (
@@ -24,11 +27,79 @@ from modules.logging_colors import logger
 from modules.models import clear_torch_cache, local_rank
 
 
+def dict_list_to_pretty_str(data: list[dict], result_num: int) -> str:
+    ret_str = ""
+    if isinstance(data, dict):
+        data = [data]
+    if isinstance(data, list):
+        for d in data:
+            ret_str += f"Result {result_num}\n"
+            ret_str += f"Title: {d['title']}"
+            ret_str += f"{d['body']}\n"
+            ret_str += f"Source URL: {d['href']}\n"
+        return ret_str
+    else:
+        raise ValueError("Input must be dict or list[dict]")
+
+
+def search_duckduckgo(query: str) -> list[dict]:
+    with DDGS() as ddgs:
+        answer_list = list(ddgs.answers(query))
+        if answer_list:
+            answer_dict = answer_list[0]
+            answer_dict["title"] = query
+            answer_dict["body"] = answer_dict["text"]
+            answer_dict["href"] = answer_dict["url"]
+            answer_dict.pop('icon', None)
+            answer_dict.pop('topic', None)
+            answer_dict.pop('text', None)
+            answer_dict.pop('url', None)
+            return [answer_dict]
+        else:
+            return list(ddgs.text(query, region='wt-wt', safesearch='moderate', timelimit='y', max_results=5))
+
+
 def generate_reply(*args, **kwargs):
     shared.generation_lock.acquire()
     try:
         for result in _generate_reply(*args, **kwargs):
             yield result
+    finally:
+        shared.generation_lock.release()
+
+
+def generate_search_reply(*args, **kwargs):
+    shared.generation_lock.acquire()
+    future_to_search_term = {}
+    web_search_count = 1
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            for result in _generate_reply(*args, **kwargs):
+                print(result)
+                search_re_match = re.search(f"Search_web{web_search_count}.*\n", result)
+                if search_re_match is not None:
+                    args[1]["web_search"] = True
+                    web_search_count += 1
+                    search_term = search_re_match.group(0).split(" ", 1)[1]
+                    print(f"Searching for {search_term}...")
+                    future_to_search_term[executor.submit(search_duckduckgo, search_term)] = search_term
+                yield result
+            if web_search_count > 1:
+                result += "```"
+                result += "Search tool:\n"
+                yield result
+                for i, future in enumerate(concurrent.futures.as_completed(future_to_search_term)):
+                    search_term = future_to_search_term[future]
+                    try:
+                        data = future.result()
+                    except Exception as exc:
+                        print(f'{search_term} generated an exception: {str(exc)}')
+                    else:
+                        result += dict_list_to_pretty_str(data, i+1)
+                        yield result
+                        time.sleep(0.041666666666666664)
+                result += "```"
+                yield result
     finally:
         shared.generation_lock.release()
 
@@ -79,6 +150,8 @@ def _generate_reply(question, state, stopping_strings=None, is_chat=False, escap
             reply = html.escape(reply)
 
         reply, stop_found = apply_stopping_strings(reply, all_stop_strings)
+        if state.get("websearch_template") and re.search("Search_web5.*\n", reply) is not None:  # marcel
+            break
         if is_stream:
             cur_time = time.time()
 
