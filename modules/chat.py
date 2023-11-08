@@ -401,7 +401,6 @@ def start_new_chat(state):
             history['visible'] += [['', apply_extensions('output', greeting, state, is_chat=True)]]
 
     unique_id = datetime.now().strftime('%Y%m%d-%H-%M-%S')
-    history["unique_id"] = unique_id
     save_history(history, unique_id, state['character_menu'], state['mode'])
 
     return history

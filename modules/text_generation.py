@@ -6,7 +6,6 @@ import re
 import time
 import traceback
 import concurrent.futures
-import pprint
 
 import numpy as np
 import torch
@@ -27,13 +26,13 @@ from modules.logging_colors import logger
 from modules.models import clear_torch_cache, local_rank
 
 
-def dict_list_to_pretty_str(data: list[dict], result_num: int) -> str:
+def dict_list_to_pretty_str(data: list[dict]) -> str:
     ret_str = ""
     if isinstance(data, dict):
         data = [data]
     if isinstance(data, list):
-        for d in data:
-            ret_str += f"Result {result_num}\n"
+        for i, d in enumerate(data):
+            ret_str += f"Result {i+1}\n"
             ret_str += f"Title: {d['title']}"
             ret_str += f"{d['body']}\n"
             ret_str += f"Source URL: {d['href']}\n"
@@ -71,21 +70,24 @@ def generate_reply(*args, **kwargs):
 def generate_search_reply(*args, **kwargs):
     shared.generation_lock.acquire()
     future_to_search_term = {}
-    web_search_count = 1
+    web_search = False
+    matched_patterns = {}
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             for result in _generate_reply(*args, **kwargs):
-                print(result)
-                search_re_match = re.search(f"Search_web{web_search_count}.*\n", result)
+                search_re_match = re.search(f"Search_web.*end", result)
                 if search_re_match is not None:
-                    args[1]["web_search"] = True
-                    web_search_count += 1
-                    search_term = search_re_match.group(0).split(" ", 1)[1]
+                    matched_pattern = search_re_match.group(0)
+                    if matched_patterns.get(matched_pattern):
+                        continue
+                    web_search = True
+                    matched_patterns[matched_pattern] = True
+                    search_term = matched_pattern.split(" ", 1)[1].rstrip("end").replace("\"", "")
                     print(f"Searching for {search_term}...")
                     future_to_search_term[executor.submit(search_duckduckgo, search_term)] = search_term
                 yield result
-            if web_search_count > 1:
-                result += "```"
+            if web_search:
+                result += "\n```"
                 result += "Search tool:\n"
                 yield result
                 for i, future in enumerate(concurrent.futures.as_completed(future_to_search_term)):
@@ -95,7 +97,7 @@ def generate_search_reply(*args, **kwargs):
                     except Exception as exc:
                         print(f'{search_term} generated an exception: {str(exc)}')
                     else:
-                        result += dict_list_to_pretty_str(data, i+1)
+                        result += dict_list_to_pretty_str(data)
                         yield result
                         time.sleep(0.041666666666666664)
                 result += "```"
@@ -150,7 +152,7 @@ def _generate_reply(question, state, stopping_strings=None, is_chat=False, escap
             reply = html.escape(reply)
 
         reply, stop_found = apply_stopping_strings(reply, all_stop_strings)
-        if state.get("websearch_template") and re.search("Search_web5.*\n", reply) is not None:  # marcel
+        if state.get("websearch_template") and re.search("Search_web.*\n", reply) is not None:  # marcel
             break
         if is_stream:
             cur_time = time.time()
