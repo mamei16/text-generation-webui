@@ -326,9 +326,7 @@ def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
     if not character_is_loaded(state):
         return
 
-    if _continue and not state.get("web_search"):
-        return
-    elif _continue and state.get("web_search"):
+    if _continue and state.get("web_search"):
         state["web_search"] = False
 
     if state['start_with'] != '' and not _continue:

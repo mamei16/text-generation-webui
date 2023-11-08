@@ -98,7 +98,7 @@ def generate_search_reply(*args, **kwargs):
                     web_search = True
                     args[1]["web_search"] = True
                     matched_patterns[matched_pattern] = True
-                    search_term = matched_pattern.split(" ", 1)[1].rstrip("end").replace("\"", "")
+                    search_term = matched_pattern.split(" ", 1)[1].replace("\"", "").rstrip("end")
                     print(f"Searching for {search_term}...")
                     future_to_search_term[executor.submit(search_duckduckgo, search_term)] = search_term
 
