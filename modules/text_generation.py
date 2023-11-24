@@ -35,7 +35,7 @@ def dict_list_to_pretty_str(data: list[dict]) -> str:
     if isinstance(data, list):
         for i, d in enumerate(data):
             ret_str += f"Result {i+1}\n"
-            ret_str += f"Title: {d['title']}"
+            ret_str += f"Title: {d['title']}\n"
             ret_str += f"{d['body']}\n"
             ret_str += f"Source URL: {d['href']}\n"
         return ret_str
