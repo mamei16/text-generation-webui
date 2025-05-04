@@ -76,8 +76,9 @@ function handleMorphdomUpdate(text) {
         if (fromEl.classList && fromEl.classList.contains("thinking-block") &&
            toEl.classList && toEl.classList.contains("thinking-block")) {
           const blockId = toEl.getAttribute("data-block-id");
-          // Remove open attribute by default
-          toEl.removeAttribute("open");
+          if (toEl.getAttribute("data-streaming") === "true") {
+            toEl.setAttribute("open", "");
+          }
           // If this block was explicitly opened by user, keep it open
           if (blockId && openBlocks.has(blockId)) {
             toEl.setAttribute("open", "");

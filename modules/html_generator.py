@@ -1,5 +1,6 @@
 import datetime
 import functools
+from itertools import zip_longest
 import html
 import os
 import re
@@ -107,8 +108,8 @@ def replace_blockquote(m):
     return m.group().replace('\n', '\n> ').replace('\\begin{blockquote}', '').replace('\\end{blockquote}', '')
 
 
-def extract_thinking_block(string):
-    """Extract thinking blocks from the beginning of a string."""
+def extract_thinking_blocks(string):
+    """Extract thinking blocks from a string."""
     if not string:
         return None, string
 
@@ -118,26 +119,37 @@ def extract_thinking_block(string):
     # Look for opening tag
     start_pos = string.lstrip().find(THINK_START_TAG)
     if start_pos == -1:
-        return None, string
+        return [], [string]
 
+    think_start_re = re.compile(THINK_START_TAG)
+    thinking_contents = []
+    remaining_contents = []
     # Adjust start position to account for any leading whitespace
-    start_pos = string.find(THINK_START_TAG)
+    start_pos_matches = think_start_re.finditer(string)
+    end_pos = 0
+    for start_pos_match in start_pos_matches:
+        tag_start, tag_end = start_pos_match.span()
+        # If there are multiple start tags before an end tag, only use the first
+        if end_pos > tag_start:
+            continue
+        if end_pos > 0:
+            remaining_contents.append(string[end_pos+len(THINK_END_TAG):tag_start])
+        # Find the content after the opening tag
+        content_start = tag_end
 
-    # Find the content after the opening tag
-    content_start = start_pos + len(THINK_START_TAG)
+        # Look for closing tag
+        end_pos = string.find(THINK_END_TAG, content_start)
 
-    # Look for closing tag
-    end_pos = string.find(THINK_END_TAG, content_start)
+        if end_pos == -1:
+            # Only opening tag found - everything else is thinking content
+            thinking_contents.append(string[content_start:])
+            return thinking_contents, remaining_contents
+        else:
+            # Both tags found - extract content between them
+            thinking_contents.append(string[content_start:end_pos])
 
-    if end_pos != -1:
-        # Both tags found - extract content between them
-        thinking_content = string[content_start:end_pos]
-        remaining_content = string[end_pos + len(THINK_END_TAG):]
-        return thinking_content, remaining_content
-    else:
-        # Only opening tag found - everything else is thinking content
-        thinking_content = string[content_start:]
-        return thinking_content, ""
+    remaining_contents.append(string[end_pos + len(THINK_END_TAG):])
+    return thinking_contents, remaining_contents
 
 
 @functools.lru_cache(maxsize=None)
@@ -150,38 +162,41 @@ def convert_to_markdown(string, message_id=None):
         message_id = "unknown"
 
     # Extract thinking block if present
-    thinking_content, remaining_content = extract_thinking_block(string)
+    thinking_contents, remaining_contents = extract_thinking_blocks(string)
+    html_output = ""
+    for i, (thinking_content, remaining_content) in enumerate(zip_longest(thinking_contents, remaining_contents)):
 
-    # Process the main content
-    html_output = process_markdown_content(remaining_content)
+        # If thinking content was found, process it using the same function
+        if thinking_content:
+            thinking_html = process_markdown_content(thinking_content)
 
-    # If thinking content was found, process it using the same function
-    if thinking_content is not None:
-        thinking_html = process_markdown_content(thinking_content)
+            # Generate unique ID for the thinking block
+            block_id = f"thinking-{message_id}-{i}"
 
-        # Generate unique ID for the thinking block
-        block_id = f"thinking-{message_id}-0"
+            # Check if thinking is complete or still in progress
+            is_streaming = not remaining_content
+            title_text = "Thinking..." if is_streaming else "Thought"
 
-        # Check if thinking is complete or still in progress
-        is_streaming = not remaining_content
-        title_text = "Thinking..." if is_streaming else "Thought"
+            thinking_block = f'''
+            <details class="thinking-block" data-block-id="{block_id}" data-streaming="{str(is_streaming).lower()}">
+                <summary class="thinking-header">
+                    <svg class="thinking-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M8 1.33334C4.31868 1.33334 1.33334 4.31868 1.33334 8.00001C1.33334 11.6813 4.31868 14.6667 8 14.6667C11.6813 14.6667 14.6667 11.6813 14.6667 8.00001C14.6667 4.31868 11.6813 1.33334 8 1.33334Z" stroke="currentColor" stroke-width="1.33" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M8 10.6667V8.00001" stroke="currentColor" stroke-width="1.33" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M8 5.33334H8.00667" stroke="currentColor" stroke-width="1.33" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span class="thinking-title">{title_text}</span>
+                </summary>
+                <div class="thinking-content pretty_scrollbar">{thinking_html}</div>
+            </details>
+            '''
 
-        thinking_block = f'''
-        <details class="thinking-block" data-block-id="{block_id}" data-streaming="{str(is_streaming).lower()}">
-            <summary class="thinking-header">
-                <svg class="thinking-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M8 1.33334C4.31868 1.33334 1.33334 4.31868 1.33334 8.00001C1.33334 11.6813 4.31868 14.6667 8 14.6667C11.6813 14.6667 14.6667 11.6813 14.6667 8.00001C14.6667 4.31868 11.6813 1.33334 8 1.33334Z" stroke="currentColor" stroke-width="1.33" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M8 10.6667V8.00001" stroke="currentColor" stroke-width="1.33" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M8 5.33334H8.00667" stroke="currentColor" stroke-width="1.33" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <span class="thinking-title">{title_text}</span>
-            </summary>
-            <div class="thinking-content pretty_scrollbar">{thinking_html}</div>
-        </details>
-        '''
+            # Prepend the thinking block to the message HTML
+            html_output += thinking_block
 
-        # Prepend the thinking block to the message HTML
-        html_output = thinking_block + html_output
+        # Process the main content
+        if remaining_content:
+            html_output += process_markdown_content(remaining_content)
 
     return html_output
 

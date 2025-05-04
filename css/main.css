@@ -1,8 +1,8 @@
 :root {
     --darker-gray: #202123;
-    --dark-gray: #343541;
-    --light-gray: #444654;
-    --light-theme-gray: #f5f5f5;
+    --dark-gray: #2d2e38;
+    --light-gray: #3e404d;
+    --light-theme-gray: #f4f4f4;
     --border-color-dark: #525252;
     --header-width: 112px;
     --selected-item-color-dark: #32333e;
@@ -560,18 +560,8 @@ div.svelte-362y77>*, div.svelte-362y77>.form>* {
     padding: 15px;
 }
 
-.message-body :not(pre) > code::before {
-    content: "`";
-}
-
-.message-body :not(pre) > code::after {
-    content: "`";
-}
-
 .message-body :not(pre) > code {
-    white-space: normal !important;
-    font-weight: bold;
-    font-family: unset;
+    background: #3d3e4d;
 }
 
 #chat-input {

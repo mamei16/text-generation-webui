@@ -96,9 +96,7 @@ def _generate_reply(question, state, stopping_strings=None, is_chat=False, escap
             # Limit updates to avoid lag in the Gradio UI
             # API updates are not limited
             else:
-                if cur_time - last_update > min_update_interval:
-                    last_update = cur_time
-                    yield reply
+                yield reply
 
         if stop_found or (state['max_tokens_second'] > 0 and shared.stop_everything):
             break
