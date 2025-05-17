@@ -14,6 +14,7 @@ from modules.callbacks import Iteratorize
 from modules.extensions import apply_extensions
 from modules.html_generator import generate_basic_html
 from modules.logging_colors import logger
+from modules.utils import check_model_loaded
 
 
 def generate_reply(*args, **kwargs):
@@ -34,8 +35,8 @@ def _generate_reply(question, state, stopping_strings=None, is_chat=False, escap
     # Find the appropriate generation function
     generate_func = apply_extensions('custom_generate_reply')
     if generate_func is None:
-        if shared.model_name == 'None' or shared.model is None:
-            logger.error("No model is loaded! Select one in the Model tab.")
+        model_is_loaded, error_message = check_model_loaded()
+        if not model_is_loaded:
             yield ''
             return
 
@@ -72,7 +73,7 @@ def _generate_reply(question, state, stopping_strings=None, is_chat=False, escap
 
     # Generate
     last_update = -1
-    latency_threshold = 1/1000
+    latency_threshold = 1 / 1000
     for reply in generate_func(question, original_question, state, stopping_strings, is_chat=is_chat):
         cur_time = time.monotonic()
         reply, stop_found = apply_stopping_strings(reply, all_stop_strings)
@@ -92,9 +93,9 @@ def _generate_reply(question, state, stopping_strings=None, is_chat=False, escap
             # Limit updates to avoid lag in the Gradio UI
             # API updates are not limited
             else:
-                # If 'generate_func' takes less than 0.001 seconds to serve the next token
+                # If 'generate_func' takes less than 0.001 seconds to yield the next token
                 # (equivalent to more than 1000 tok/s), assume that the UI is lagging behind and skip yielding
-                if (cur_time-last_update) > latency_threshold:
+                if (cur_time - last_update) > latency_threshold:
                     yield reply
                 last_update = time.monotonic()
 
@@ -469,7 +470,7 @@ def generate_reply_HF(question, original_question, state, stopping_strings=None,
         t1 = time.time()
         original_tokens = len(original_input_ids[0])
         new_tokens = len(output) - (original_tokens if not shared.is_seq2seq else 0)
-        print(f'Output generated in {(t1-t0):.2f} seconds ({new_tokens/(t1-t0):.2f} tokens/s, {new_tokens} tokens, context {original_tokens}, seed {seed})')
+        logger.info(f'Output generated in {(t1-t0):.2f} seconds ({new_tokens/(t1-t0):.2f} tokens/s, {new_tokens} tokens, context {original_tokens}, seed {seed})')
         return
 
 
@@ -478,7 +479,7 @@ def generate_reply_custom(question, original_question, state, stopping_strings=N
     For models that do not use the transformers library for sampling
     """
 
-    seed = set_manual_seed(state['seed'])
+    state['seed'] = set_manual_seed(state['seed'])
     t0 = time.time()
     reply = ''
     try:
@@ -498,7 +499,7 @@ def generate_reply_custom(question, original_question, state, stopping_strings=N
         t1 = time.time()
         original_tokens = len(encode(original_question)[0])
         new_tokens = len(encode(original_question + reply)[0]) - original_tokens
-        print(f'Output generated in {(t1-t0):.2f} seconds ({new_tokens/(t1-t0):.2f} tokens/s, {new_tokens} tokens, context {original_tokens}, seed {seed})')
+        logger.info(f'Output generated in {(t1-t0):.2f} seconds ({new_tokens/(t1-t0):.2f} tokens/s, {new_tokens} tokens, context {original_tokens}, seed {state["seed"]})')
         return
 
 
