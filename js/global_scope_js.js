@@ -30,6 +30,12 @@ function removeLastClick() {
   document.getElementById("Remove-last").click();
 }
 
+const ws = new WebSocket("ws://localhost:8000/ws");
+ws.onmessage = function(event) {
+  const data = JSON.parse(event.data);
+  handleMorphdomUpdate(data.html)
+};
+
 function handleMorphdomUpdate(text) {
   // Track open blocks
   const openBlocks = new Set();

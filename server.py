@@ -31,6 +31,10 @@ from pathlib import Path
 from threading import Lock, Thread
 
 import yaml
+import threading
+import uvicorn
+from fastapi import FastAPI, WebSocket
+import asyncio
 
 import modules.extensions as extensions_module
 from modules import (
@@ -184,8 +188,20 @@ def create_interface():
         )
 
 
-if __name__ == "__main__":
+app = FastAPI()
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    shared.gradio["websocket"] = websocket
 
+    # Keep the connection open
+    while True:
+        await asyncio.sleep(1)
+
+
+if __name__ == "__main__":
+    unicorn_thread = threading.Thread(target=uvicorn.run, args=(app,), kwargs={"host": "127.0.0.1", "port": 8000})
+    unicorn_thread.start()
     logger.info("Starting Text generation web UI")
     do_cmd_flags_warnings()
 
