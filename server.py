@@ -35,6 +35,7 @@ import threading
 import uvicorn
 from fastapi import FastAPI, WebSocket
 from starlette.responses import StreamingResponse
+from sse_starlette.sse import EventSourceResponse
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 
@@ -205,10 +206,10 @@ async def stream():
     async def event_stream():
         while True:
             new_message = await shared.gradio["message_queue"].get()
-            yield f"data: {json.dumps(new_message)}\n\n"
+            yield {"data": json.dumps(new_message)}
 
     while True:
-        return StreamingResponse(event_stream(), media_type="text/event-stream")
+        return EventSourceResponse(event_stream())
 
 
 if __name__ == "__main__":
