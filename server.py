@@ -34,6 +34,8 @@ import yaml
 import threading
 import uvicorn
 from fastapi import FastAPI, WebSocket
+from starlette.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 
 import modules.extensions as extensions_module
@@ -189,14 +191,24 @@ def create_interface():
 
 
 app = FastAPI()
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    shared.gradio["websocket"] = websocket
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
 
-    # Keep the connection open
+shared.gradio["message_queue"] = asyncio.Queue()
+@app.get('/message-stream')
+async def stream():
+    async def event_stream():
+        while True:
+            new_message = await shared.gradio["message_queue"].get()
+            yield f"data: {json.dumps(new_message)}\n\n"
+
     while True:
-        await asyncio.sleep(1)
+        return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 if __name__ == "__main__":

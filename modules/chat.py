@@ -428,7 +428,7 @@ def chatbot_wrapper(text, state, regenerate=False, _continue=False, loading_mess
 
 def impersonate_wrapper(text, state):
     static_output = chat_html_wrapper(state['history'], state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
-    websocket_send(static_output)
+    sse_send_event(static_output)
     prompt = generate_chat_prompt('', state, impersonate=True)
     stopping_strings = get_stopping_strings(state)
 
@@ -462,13 +462,11 @@ def character_is_loaded(state, raise_exception=False):
     else:
         return True
 
-async def awebsocket_send(_json):
-    _websocket = shared.gradio["websocket"]
-    if _websocket is not None:
-            await _websocket.send_json(_json)
+async def asse_send_event(_json):
+    await shared.gradio["message_queue"].put(_json)
 
-def websocket_send(_json):
-    asyncio.run(awebsocket_send(_json))
+def sse_send_event(_json):
+    asyncio.run(asse_send_event(_json))
 
 def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
     '''
@@ -491,7 +489,7 @@ def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
     last_save_time = time.monotonic()
     save_interval = 8
     for i, history in enumerate(generate_chat_reply(text, state, regenerate, _continue, loading_message=True, for_ui=True)):
-        websocket_send(chat_html_wrapper(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu']))
+        sse_send_event(chat_html_wrapper(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu']))
         yield history
 
         current_time = time.monotonic()
@@ -551,7 +549,7 @@ def send_dummy_reply(text, state):
 
 
 def redraw_html(history, name1, name2, mode, style, character, reset_cache=False):
-    websocket_send(chat_html_wrapper(history, name1, name2, mode, style, character, reset_cache=reset_cache))
+    sse_send_event(chat_html_wrapper(history, name1, name2, mode, style, character, reset_cache=reset_cache))
 
 
 def start_new_chat(state):

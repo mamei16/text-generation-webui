@@ -30,8 +30,8 @@ function removeLastClick() {
   document.getElementById("Remove-last").click();
 }
 
-const ws = new WebSocket("ws://localhost:8000/ws");
-ws.onmessage = function(event) {
+const eventSource = new EventSource('http://localhost:8000/message-stream');
+eventSource.onmessage = function(event) {
   const data = JSON.parse(event.data);
   handleMorphdomUpdate(data.html)
 };
