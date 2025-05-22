@@ -9,7 +9,7 @@ from gradio.routes import App
 from modules import shared
 
 
-original_routes_app = gradio.routes.Appmon
+original_routes_app = gradio.routes.App
 
 class PatchRoutesApp:
 
