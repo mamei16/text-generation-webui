@@ -16,6 +16,8 @@ from jinja2.ext import loopcontrols
 from jinja2.sandbox import ImmutableSandboxedEnvironment
 from PIL import Image
 import asyncio
+from fastapi import WebSocketDisconnect
+from starlette.websockets import WebSocketState
 
 import modules.shared as shared
 from modules import utils
@@ -462,13 +464,19 @@ def character_is_loaded(state, raise_exception=False):
     else:
         return True
 
+
 async def awebsocket_send(_json):
-    _websocket = shared.gradio["websocket"]
-    if _websocket is not None:
+    _websocket = shared.gradio.get("websocket")
+    if _websocket is not None and not _websocket.application_state == WebSocketState.DISCONNECTED:
+        try:
             await _websocket.send_json(_json)
+        except WebSocketDisconnect:
+            logger.error("WebSocket connection lost")
+
 
 def websocket_send(_json):
     asyncio.run(awebsocket_send(_json))
+
 
 def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
     '''
