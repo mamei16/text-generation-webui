@@ -30,7 +30,7 @@ function removeLastClick() {
   document.getElementById("Remove-last").click();
 }
 
-const ws = new WebSocket("ws://localhost:8000/ws");
+const ws = new WebSocket("ws://" + window.location.host + "/ws");  //todo: will window.location.host always work?
 ws.onmessage = function(event) {
   const data = JSON.parse(event.data);
   handleMorphdomUpdate(data.html)
