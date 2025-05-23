@@ -475,7 +475,14 @@ async def awebsocket_send(_json):
 
 
 def websocket_send(_json):
-    asyncio.ensure_future(awebsocket_send(_json), loop=shared.gradio["main_loop"])
+    main_loop = shared.gradio.get("main_loop")
+
+    if main_loop and not main_loop.is_closed():
+        # Fire and forget - don't wait for completion
+        asyncio.ensure_future(awebsocket_send(_json), loop=main_loop)
+    else:
+        logger.warning("No main event loop available for WebSocket")
+
 
 
 def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
