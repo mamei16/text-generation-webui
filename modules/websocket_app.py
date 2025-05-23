@@ -39,7 +39,7 @@ class WebSocketApp(App):
             shared.gradio["processed_ws_message_count"] = 0
             async def read_from_socket(websocket: WebSocket):
                 async for data in websocket.iter_text():
-                    shared.gradio["processed_message_count"] = int(data)
+                    shared.gradio["processed_ws_message_count"] = int(data)
 
             asyncio.create_task(read_from_socket(websocket))
             try:
