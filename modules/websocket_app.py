@@ -34,6 +34,14 @@ class WebSocketApp(App):
         async def websocket_endpoint(websocket: WebSocket):
             await websocket.accept()
             shared.gradio["websocket"] = websocket
+            shared.gradio["main_loop"] = asyncio.get_running_loop()
+
+            shared.gradio["processed_ws_message_count"] = 0
+            async def read_from_socket(websocket: WebSocket):
+                async for data in websocket.iter_text():
+                    shared.gradio["processed_message_count"] = int(data)
+
+            asyncio.create_task(read_from_socket(websocket))
             try:
                 # Keep the connection open
                 while True:

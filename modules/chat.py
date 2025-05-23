@@ -475,7 +475,7 @@ async def awebsocket_send(_json):
 
 
 def websocket_send(_json):
-    asyncio.run(awebsocket_send(_json))
+    asyncio.ensure_future(awebsocket_send(_json), loop=shared.gradio["main_loop"])
 
 
 def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
@@ -498,7 +498,13 @@ def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
     history = state['history']
     last_save_time = time.monotonic()
     save_interval = 8
+    websocket_send({"html": "reset"})
     for i, history in enumerate(generate_chat_reply(text, state, regenerate, _continue, loading_message=True, for_ui=True)):
+        # If the client has not managed to process all the tokens we have sent,
+        # skip sending tokens to re-sync with client.
+        if i > shared.gradio["processed_ws_message_count"]:
+            websocket_send({"html": ""})
+            continue
         websocket_send(chat_html_wrapper(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu']))
         yield history
 
@@ -508,6 +514,9 @@ def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
             save_history(history, state['unique_id'], state['character_menu'], state['mode'])
             last_save_time = current_time
 
+    websocket_send(chat_html_wrapper(history, state['name1'], state['name2'], state['mode'], state['chat_style'],
+                                     state['character_menu']))
+    yield history
     save_history(history, state['unique_id'], state['character_menu'], state['mode'])
 
 
