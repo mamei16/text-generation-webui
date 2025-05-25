@@ -32,24 +32,18 @@ function removeLastClick() {
 
 var ws_protocol = "ws";
 if (window.location.protocol == "https:") ws_protocol = "wss";
-
 const ws = new WebSocket(ws_protocol + "://" + window.location.host + "/ws");  //todo: will window.location.host always work?
-var message_counter = 0;
 
+var processingTime = 0;
 ws.onmessage = function(event) {
   const data = JSON.parse(event.data);
   if (data.html == "") {
-    message_counter++;
-    ws.send(`${message_counter}`)
     return;
   }
-  if (data.html == "reset") {
-    message_counter = 0;
-    return;
-  }
+  var serverTimeStamp = data.server_timestamp
   handleMorphdomUpdate(data.html);
-  message_counter++;
-  ws.send(`${message_counter}`)
+  processingTime = (new Date()).getTime() - serverTimeStamp;
+  ws.send(`${processingTime}`)
 };
 
 function handleMorphdomUpdate(text) {

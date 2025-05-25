@@ -478,6 +478,8 @@ def websocket_send(_json):
     main_loop = shared.gradio.get("main_loop")
 
     if main_loop and not main_loop.is_closed():
+        # Convert to same format as JavaScript timestamp
+        _json["server_timestamp"] = int(time.time() * 1000)
         # Fire and forget - don't wait for completion
         asyncio.ensure_future(awebsocket_send(_json), loop=main_loop)
     else:
@@ -505,11 +507,13 @@ def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
     history = state['history']
     last_save_time = time.monotonic()
     save_interval = 8
-    websocket_send({"html": "reset"})
+    shared.gradio["ws_processing_time"] = 0
+    last_token_time = time.monotonic()
     for i, history in enumerate(generate_chat_reply(text, state, regenerate, _continue, loading_message=True, for_ui=True)):
-        # If the client has not managed to process all the tokens we have sent,
-        # skip sending tokens to re-sync with client.
-        if i > shared.gradio["processed_ws_message_count"]:
+        token_gen_time = (time.monotonic() - last_token_time) * 1000
+        # If the client processes tokens slower than we generate them,
+        # skip sending tokens to allow client to catch up.
+        if token_gen_time < shared.gradio["ws_processing_time"]:
             websocket_send({"html": ""})
             continue
         websocket_send(chat_html_wrapper(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu']))
@@ -520,6 +524,8 @@ def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
         if i == 0 or (current_time - last_save_time) >= save_interval:
             save_history(history, state['unique_id'], state['character_menu'], state['mode'])
             last_save_time = current_time
+
+        last_token_time = time.monotonic()
 
     websocket_send(chat_html_wrapper(history, state['name1'], state['name2'], state['mode'], state['chat_style'],
                                      state['character_menu']))
