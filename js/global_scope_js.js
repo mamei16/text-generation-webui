@@ -37,9 +37,6 @@ const ws = new WebSocket(ws_protocol + "://" + window.location.host + "/ws");  /
 var processingTime = 0;
 ws.onmessage = function(event) {
   const data = JSON.parse(event.data);
-  if (data.html == "") {
-    return;
-  }
   var serverTimeStamp = data.server_timestamp
   handleMorphdomUpdate(data.html);
   processingTime = (new Date()).getTime() - serverTimeStamp;

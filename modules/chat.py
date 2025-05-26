@@ -514,7 +514,6 @@ def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
         # If the client processes tokens slower than we generate them,
         # skip sending tokens to allow client to catch up.
         if token_gen_time < shared.gradio["ws_processing_time"]:
-            websocket_send({"html": ""})
             continue
         websocket_send(chat_html_wrapper(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu']))
         yield history
