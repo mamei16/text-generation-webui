@@ -53,7 +53,6 @@ function throttle(fn) {
 ws.onmessage = throttle((event) => {
     const data = JSON.parse(event.data);
     if (data.setUpdatesSecond) {
-        console.log("setting throttleDelay");
         throttleDelay = 1000/data.setUpdatesSecond;
         return;
     }
