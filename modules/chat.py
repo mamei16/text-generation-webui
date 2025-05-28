@@ -574,7 +574,8 @@ def send_dummy_reply(text, state):
 
 
 def redraw_html(history, name1, name2, mode, style, character, reset_cache=False):
-    websocket_send(chat_html_wrapper(history, name1, name2, mode, style, character, reset_cache=reset_cache))
+    websocket_send(chat_html_wrapper(history, name1, name2, mode, style, character, reset_cache=reset_cache),
+                   force_render=True)
 
 
 def start_new_chat(state):
