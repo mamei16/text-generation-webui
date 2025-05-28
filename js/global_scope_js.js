@@ -34,7 +34,8 @@ var ws_protocol = "ws";
 if (window.location.protocol == "https:") ws_protocol = "wss";
 const ws = new WebSocket(ws_protocol + "://" + window.location.host + "/ws");  //todo: will window.location.host always work?
 
-function throttle(fn, delay) {
+var throttleDelay = 10;
+function throttle(fn) {
     let isThr = false;
 
     return function (...args) {
@@ -44,20 +45,20 @@ function throttle(fn, delay) {
 
             setTimeout(() => {
                 isThr = false;
-            }, delay);
+            }, throttleDelay);
         }
     };
 }
 
-var throttleDelay = 10;
 ws.onmessage = throttle((event) => {
     const data = JSON.parse(event.data);
-    if (data.setLatency) {
-        throttleDelay = 1000/data.setLatency;
+    if (data.setUpdatesSecond) {
+        console.log("setting throttleDelay");
+        throttleDelay = 1000/data.setUpdatesSecond;
         return;
     }
     handleMorphdomUpdate(data.html);
-}, 10);
+});
 
 
 function handleMorphdomUpdate(text) {
