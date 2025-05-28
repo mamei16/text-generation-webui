@@ -30,10 +30,6 @@ function removeLastClick() {
   document.getElementById("Remove-last").click();
 }
 
-var ws_protocol = "ws";
-if (window.location.protocol == "https:") ws_protocol = "wss";
-const ws = new WebSocket(ws_protocol + "://" + window.location.host + "/ws");  //todo: will window.location.host always work?
-
 var throttleDelay = 10;
 function throttle(fn) {
     let isThr = false;
@@ -50,14 +46,20 @@ function throttle(fn) {
     };
 }
 
-ws.onmessage = throttle((event) => {
-    const data = JSON.parse(event.data);
-    if (data.setUpdatesSecond) {
-        throttleDelay = 1000/data.setUpdatesSecond;
-        return;
-    }
-    handleMorphdomUpdate(data.html);
-});
+var ws_protocol = window.location.protocol == "https:" ? "wss" : "ws";
+
+if (!window.gradio_config.auth_required) {
+    const ws = new WebSocket(ws_protocol + "://" + window.location.host + "/ws");
+
+    ws.onmessage = throttle((event) => {
+        const data = JSON.parse(event.data);
+        if (data.setUpdatesSecond) {
+            throttleDelay = 1000/data.setUpdatesSecond;
+            return;
+        }
+        handleMorphdomUpdate(data.html);
+    });
+}
 
 
 function handleMorphdomUpdate(text) {
