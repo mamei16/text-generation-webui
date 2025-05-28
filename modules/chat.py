@@ -474,10 +474,12 @@ async def awebsocket_send(_json):
             logger.error("WebSocket connection lost")
 
 
-def websocket_send(_json):
+def websocket_send(_json, force_render=False):
     main_loop = shared.gradio.get("main_loop")
 
     if main_loop and not main_loop.is_closed():
+        if force_render:
+            _json["forceRender"] = True
         # Fire and forget - don't wait for completion
         asyncio.ensure_future(awebsocket_send(_json), loop=main_loop)
     else:
@@ -516,6 +518,9 @@ def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
             save_history(history, state['unique_id'], state['character_menu'], state['mode'])
             last_save_time = current_time
 
+    # Ensure that the entire message is rendered
+    websocket_send(chat_html_wrapper(history, state['name1'], state['name2'], state['mode'], state['chat_style'],
+                                    state['character_menu']), force_render=True)
     # Reset to high value, so that UI remains responsive
     websocket_send({"setUpdatesSecond": 100})
     save_history(history, state['unique_id'], state['character_menu'], state['mode'])

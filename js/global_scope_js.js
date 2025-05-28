@@ -35,8 +35,9 @@ function throttle(fn) {
     let isThr = false;
 
     return function (...args) {
-        if (!isThr) {
-            fn.apply(this, args);
+        const data = JSON.parse(args[0].data);
+        if (!isThr || data.forceRender) {
+            fn.apply(this, [data]);
             isThr = true;
 
             setTimeout(() => {
@@ -51,8 +52,7 @@ var ws_protocol = window.location.protocol == "https:" ? "wss" : "ws";
 if (!window.gradio_config.auth_required) {
     const ws = new WebSocket(ws_protocol + "://" + window.location.host + "/ws");
 
-    ws.onmessage = throttle((event) => {
-        const data = JSON.parse(event.data);
+    ws.onmessage = throttle((data) => {
         if (data.setUpdatesSecond) {
             throttleDelay = 1000/data.setUpdatesSecond;
             return;
