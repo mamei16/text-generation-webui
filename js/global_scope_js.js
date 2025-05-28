@@ -34,14 +34,31 @@ var ws_protocol = "ws";
 if (window.location.protocol == "https:") ws_protocol = "wss";
 const ws = new WebSocket(ws_protocol + "://" + window.location.host + "/ws");  //todo: will window.location.host always work?
 
-var processingTime = 0;
-ws.onmessage = function(event) {
-  const data = JSON.parse(event.data);
-  var serverTimeStamp = data.server_timestamp
-  handleMorphdomUpdate(data.html);
-  processingTime = (new Date()).getTime() - serverTimeStamp;
-  ws.send(`${processingTime}`)
-};
+function throttle(fn, delay) {
+    let isThr = false;
+
+    return function (...args) {
+        if (!isThr) {
+            fn.apply(this, args);
+            isThr = true;
+
+            setTimeout(() => {
+                isThr = false;
+            }, delay);
+        }
+    };
+}
+
+var throttleDelay = 10;
+ws.onmessage = throttle((event) => {
+    const data = JSON.parse(event.data);
+    if (data.setLatency) {
+        throttleDelay = 1000/data.setLatency;
+        return;
+    }
+    handleMorphdomUpdate(data.html);
+}, 10);
+
 
 function handleMorphdomUpdate(text) {
   // Track open blocks
