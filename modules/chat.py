@@ -15,6 +15,9 @@ import yaml
 from jinja2.ext import loopcontrols
 from jinja2.sandbox import ImmutableSandboxedEnvironment
 from PIL import Image
+import asyncio
+from fastapi import WebSocketDisconnect
+from starlette.websockets import WebSocketState
 
 import modules.shared as shared
 from modules import utils
@@ -427,14 +430,14 @@ def chatbot_wrapper(text, state, regenerate=False, _continue=False, loading_mess
 
 def impersonate_wrapper(text, state):
     static_output = chat_html_wrapper(state['history'], state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
-
+    websocket_send(static_output)
     prompt = generate_chat_prompt('', state, impersonate=True)
     stopping_strings = get_stopping_strings(state)
 
-    yield text + '...', static_output
+    yield text + '...'
     reply = None
     for reply in generate_reply(prompt + text, state, stopping_strings=stopping_strings, is_chat=True):
-        yield (text + reply).lstrip(' '), static_output
+        yield (text + reply).lstrip(' ')
         if shared.stop_everything:
             return
 
@@ -462,6 +465,28 @@ def character_is_loaded(state, raise_exception=False):
         return True
 
 
+async def awebsocket_send(_json):
+    _websocket = shared.gradio.get("websocket")
+    if _websocket is not None and not _websocket.application_state == WebSocketState.DISCONNECTED:
+        try:
+            await _websocket.send_json(_json)
+        except WebSocketDisconnect:
+            logger.error("WebSocket connection lost")
+
+
+def websocket_send(_json, force_render=False):
+    main_loop = shared.gradio.get("main_loop")
+
+    if main_loop and not main_loop.is_closed():
+        if force_render:
+            _json["forceRender"] = True
+        # Fire and forget - don't wait for completion
+        asyncio.ensure_future(awebsocket_send(_json), loop=main_loop)
+    else:
+        logger.warning("No main event loop available for WebSocket")
+
+
+
 def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
     '''
     Same as above but returns HTML for the UI
@@ -482,8 +507,10 @@ def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
     history = state['history']
     last_save_time = time.monotonic()
     save_interval = 8
+    websocket_send({"setUpdatesSecond": state['max_updates_second']})
     for i, history in enumerate(generate_chat_reply(text, state, regenerate, _continue, loading_message=True, for_ui=True)):
-        yield chat_html_wrapper(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu']), history
+        websocket_send(chat_html_wrapper(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu']))
+        yield history
 
         current_time = time.monotonic()
         # Save on first iteration or if save_interval seconds have passed
@@ -491,6 +518,11 @@ def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
             save_history(history, state['unique_id'], state['character_menu'], state['mode'])
             last_save_time = current_time
 
+    # Ensure that the entire message is rendered
+    websocket_send(chat_html_wrapper(history, state['name1'], state['name2'], state['mode'], state['chat_style'],
+                                    state['character_menu']), force_render=True)
+    # Reset to high value, so that UI remains responsive
+    websocket_send({"setUpdatesSecond": 100})
     save_history(history, state['unique_id'], state['character_menu'], state['mode'])
 
 
@@ -542,7 +574,8 @@ def send_dummy_reply(text, state):
 
 
 def redraw_html(history, name1, name2, mode, style, character, reset_cache=False):
-    return chat_html_wrapper(history, name1, name2, mode, style, character, reset_cache=reset_cache)
+    websocket_send(chat_html_wrapper(history, name1, name2, mode, style, character, reset_cache=reset_cache),
+                   force_render=True)
 
 
 def start_new_chat(state):
@@ -1074,48 +1107,48 @@ def my_yaml_output(data):
 def handle_replace_last_reply_click(text, state):
     history = replace_last_reply(text, state)
     save_history(history, state['unique_id'], state['character_menu'], state['mode'])
-    html = redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
+    redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
 
-    return [history, html, ""]
+    return [history, ""]
 
 
 def handle_send_dummy_message_click(text, state):
     history = send_dummy_message(text, state)
     save_history(history, state['unique_id'], state['character_menu'], state['mode'])
-    html = redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
+    redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
 
-    return [history, html, ""]
+    return [history, ""]
 
 
 def handle_send_dummy_reply_click(text, state):
     history = send_dummy_reply(text, state)
     save_history(history, state['unique_id'], state['character_menu'], state['mode'])
-    html = redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
+    redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
 
-    return [history, html, ""]
+    return [history, ""]
 
 
 def handle_remove_last_click(state):
     last_input, history = remove_last_message(state['history'])
     save_history(history, state['unique_id'], state['character_menu'], state['mode'])
-    html = redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
+    redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
 
-    return [history, html, last_input]
+    return [history, last_input]
 
 
 def handle_unique_id_select(state):
     history = load_history(state['unique_id'], state['character_menu'], state['mode'])
-    html = redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
+    redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
 
     convert_to_markdown.cache_clear()
 
-    return [history, html]
+    return history
 
 
 def handle_start_new_chat_click(state):
     history = start_new_chat(state)
     histories = find_all_histories_with_first_prompts(state)
-    html = redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
+    redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
 
     convert_to_markdown.cache_clear()
 
@@ -1124,20 +1157,19 @@ def handle_start_new_chat_click(state):
     else:
         past_chats_update = gr.update(choices=histories)
 
-    return [history, html, past_chats_update]
+    return [history, past_chats_update]
 
 
 def handle_delete_chat_confirm_click(state):
     index = str(find_all_histories(state).index(state['unique_id']))
     delete_history(state['unique_id'], state['character_menu'], state['mode'])
     history, unique_id = load_history_after_deletion(state, index)
-    html = redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
+    redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
 
     convert_to_markdown.cache_clear()
 
     return [
         history,
-        html,
         unique_id,
         gr.update(visible=False),
         gr.update(visible=True),
@@ -1151,13 +1183,13 @@ def handle_branch_chat_click(state):
     save_history(history, new_unique_id, state['character_menu'], state['mode'])
 
     histories = find_all_histories_with_first_prompts(state)
-    html = redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
+    redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
 
     convert_to_markdown.cache_clear()
 
     past_chats_update = gr.update(choices=histories, value=new_unique_id)
 
-    return [history, html, past_chats_update]
+    return [history, past_chats_update]
 
 
 def handle_rename_chat_click():
@@ -1188,7 +1220,7 @@ def handle_upload_chat_history(load_chat_history, state):
     save_history(history, state['unique_id'], state['character_menu'], state['mode'])
     histories = find_all_histories_with_first_prompts(state)
 
-    html = redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
+    redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
 
     convert_to_markdown.cache_clear()
 
@@ -1199,7 +1231,6 @@ def handle_upload_chat_history(load_chat_history, state):
 
     return [
         history,
-        html,
         past_chats_update
     ]
 
@@ -1215,7 +1246,7 @@ def handle_character_menu_change(state):
 
     history = load_latest_history(state)
     histories = find_all_histories_with_first_prompts(state)
-    html = redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
+    redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
 
     convert_to_markdown.cache_clear()
 
@@ -1226,7 +1257,6 @@ def handle_character_menu_change(state):
 
     return [
         history,
-        html,
         name1,
         name2,
         picture,
@@ -1239,7 +1269,7 @@ def handle_character_menu_change(state):
 def handle_mode_change(state):
     history = load_latest_history(state)
     histories = find_all_histories_with_first_prompts(state)
-    html = redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
+    redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
 
     convert_to_markdown.cache_clear()
 
@@ -1250,7 +1280,6 @@ def handle_mode_change(state):
 
     return [
         history,
-        html,
         gr.update(visible=state['mode'] != 'instruct'),
         gr.update(visible=state['mode'] == 'chat-instruct'),
         past_chats_update
@@ -1292,9 +1321,7 @@ def handle_delete_template_click(template):
 
 def handle_your_picture_change(picture, state):
     upload_your_profile_picture(picture)
-    html = redraw_html(state['history'], state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'], reset_cache=True)
-
-    return html
+    redraw_html(state['history'], state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'], reset_cache=True)
 
 
 def handle_send_instruction_click(state):

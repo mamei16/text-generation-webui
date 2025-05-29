@@ -30,6 +30,38 @@ function removeLastClick() {
   document.getElementById("Remove-last").click();
 }
 
+var throttleDelay = 10;
+function throttle(fn) {
+    let isThr = false;
+
+    return function (...args) {
+        const data = JSON.parse(args[0].data);
+        if (!isThr || data.forceRender) {
+            fn.apply(this, [data]);
+            isThr = true;
+
+            setTimeout(() => {
+                isThr = false;
+            }, throttleDelay);
+        }
+    };
+}
+
+var ws_protocol = window.location.protocol == "https:" ? "wss" : "ws";
+
+if (!window.gradio_config.auth_required) {
+    const ws = new WebSocket(ws_protocol + "://" + window.location.host + "/ws");
+
+    ws.onmessage = throttle((data) => {
+        if (data.setUpdatesSecond) {
+            throttleDelay = 1000/data.setUpdatesSecond;
+            return;
+        }
+        handleMorphdomUpdate(data.html);
+    });
+}
+
+
 function handleMorphdomUpdate(text) {
   // Track open blocks
   const openBlocks = new Set();

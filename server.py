@@ -4,6 +4,7 @@ import warnings
 from modules import shared
 from modules.block_requests import OpenMonkeyPatch, RequestBlocker
 from modules.logging_colors import logger
+from modules.websocket_app import PatchRoutesApp
 
 os.environ['GRADIO_ANALYTICS_ENABLED'] = 'False'
 os.environ['BITSANDBYTES_NOWELCOME'] = '1'
@@ -167,7 +168,7 @@ def create_interface():
 
     # Launch the interface
     shared.gradio['interface'].queue()
-    with OpenMonkeyPatch():
+    with OpenMonkeyPatch(), PatchRoutesApp():
         shared.gradio['interface'].launch(
             max_threads=64,
             prevent_thread_lock=True,
@@ -183,9 +184,7 @@ def create_interface():
             allowed_paths=["css", "js", "extensions", "user_data/cache"]
         )
 
-
 if __name__ == "__main__":
-
     logger.info("Starting Text generation web UI")
     do_cmd_flags_warnings()
 
