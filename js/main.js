@@ -138,6 +138,7 @@ const observer = new MutationObserver(function(mutations) {
     typing.parentNode.classList.add("visible-dots");
     document.getElementById("stop").style.display = "flex";
     document.getElementById("Generate").style.display = "none";
+    targetElement.scrollTo(0, targetElement.scrollHeight);
   } else {
     typing.parentNode.classList.remove("visible-dots");
     document.getElementById("stop").style.display = "none";
