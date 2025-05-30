@@ -65,16 +65,11 @@ def _generate_reply(question, state, stopping_strings=None, is_chat=False, escap
             all_stop_strings += st
 
     shared.stop_everything = False
-    last_update = -1
     reply = ''
     is_stream = state['stream']
     if len(all_stop_strings) > 0 and not state['stream']:
         state = copy.deepcopy(state)
         state['stream'] = True
-
-    min_update_interval = 0
-    if state.get('max_updates_second', 0) > 0:
-        min_update_interval = 1 / state['max_updates_second']
 
     # Generate
     last_update = -1
