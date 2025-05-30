@@ -1524,8 +1524,8 @@ def handle_edit_message_click(state):
     role = state['edit_message_role']  # "user" or "assistant"
 
     if message_index >= len(history['internal']):
-        html_output = redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
-        return [history, html_output]
+        redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
+        return history
 
     role_idx = 0 if role == "user" else 1
 
@@ -1554,9 +1554,9 @@ def handle_edit_message_click(state):
     add_message_version(history, role, message_index, is_current=True)
 
     save_history(history, state['unique_id'], state['character_menu'], state['mode'])
-    html_output = redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
+    redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
 
-    return [history, html_output]
+    return history
 
 
 def handle_navigate_version_click(state):
@@ -1567,13 +1567,13 @@ def handle_navigate_version_click(state):
 
     if not role:
         logger.error("Role not provided for version navigation.")
-        html = redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
-        return [history, html]
+        redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
+        return history
 
     key = f"{role}_{message_index}"
     if 'metadata' not in history or key not in history['metadata'] or 'versions' not in history['metadata'][key]:
-        html = redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
-        return [history, html]
+        redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
+        return history
 
     metadata = history['metadata'][key]
     versions = metadata['versions']
@@ -1586,8 +1586,8 @@ def handle_navigate_version_click(state):
         new_idx = min(len(versions) - 1, current_idx + 1)
 
     if new_idx == current_idx:
-        html = redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
-        return [history, html]
+        redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
+        return history
 
     msg_content_idx = 0 if role == 'user' else 1  # 0 for user content, 1 for assistant content in the pair
     version_to_load = versions[new_idx]
@@ -1597,10 +1597,10 @@ def handle_navigate_version_click(state):
     update_message_metadata(history['metadata'], role, message_index, timestamp=version_to_load['timestamp'])
 
     # Redraw and save
-    html = redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
+    redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
     save_history(history, state['unique_id'], state['character_menu'], state['mode'])
 
-    return [history, html]
+    return history
 
 
 def handle_rename_chat_click():
