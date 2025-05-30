@@ -109,7 +109,6 @@ def list_model_elements():
         'threads',
         'threads_batch',
         'batch_size',
-        'hqq_backend',
         'ctx_size',
         'cache_type',
         'tensor_split',
@@ -211,6 +210,13 @@ def list_interface_input_elements():
         'negative_prompt',
         'dry_sequence_breakers',
         'grammar_string',
+        'navigate_message_index',
+        'navigate_direction',
+        'navigate_message_role',
+        'edit_message_index',
+        'edit_message_text',
+        'edit_message_role',
+        'branch_index',
     ]
 
     # Chat elements
