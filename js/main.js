@@ -130,6 +130,7 @@ targetElement.addEventListener("scroll", function() {
 
 });
 
+var autoScroll = true;
 // Create a MutationObserver instance
 const observer = new MutationObserver(function(mutations) {
   updateCssProperties();
@@ -138,11 +139,15 @@ const observer = new MutationObserver(function(mutations) {
     typing.parentNode.classList.add("visible-dots");
     document.getElementById("stop").style.display = "flex";
     document.getElementById("Generate").style.display = "none";
-    targetElement.scrollTo(0, targetElement.scrollHeight);
+    if (autoScroll) {
+        targetElement.scrollTo(0, targetElement.scrollHeight);
+        autoScroll = false;
+    }
   } else {
     typing.parentNode.classList.remove("visible-dots");
     document.getElementById("stop").style.display = "none";
     document.getElementById("Generate").style.display = "flex";
+    autoScroll = true;
   }
 
 
