@@ -799,7 +799,6 @@ def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
     history = state['history']
     last_save_time = time.monotonic()
     save_interval = 8
-    websocket_send({"setUpdatesSecond": state['max_updates_second']})
     for i, history in enumerate(generate_chat_reply(text, state, regenerate, _continue, loading_message=True, for_ui=True)):
         websocket_send(chat_html_wrapper(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu']))
         yield history
@@ -813,8 +812,7 @@ def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
     # Ensure that the entire message is rendered
     websocket_send(chat_html_wrapper(history, state['name1'], state['name2'], state['mode'], state['chat_style'],
                                     state['character_menu']), force_render=True)
-    # Reset to high value, so that UI remains responsive
-    websocket_send({"setUpdatesSecond": 100})
+
     save_history(history, state['unique_id'], state['character_menu'], state['mode'])
 
 

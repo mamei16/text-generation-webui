@@ -229,19 +229,24 @@ function removeLastClick() {
   document.getElementById("Remove-last").click();
 }
 
-var throttleDelay = 10;
+var renderTimeout = null;
 function throttle(fn) {
     let isThr = false;
 
     return function (...args) {
         const data = JSON.parse(args[0].data);
         if (!isThr || data.forceRender) {
-            fn.apply(this, [data]);
             isThr = true;
-
-            setTimeout(() => {
+            if (data.forceRender) {
+                clearTimeout(renderTimeout);
+                fn.apply(this, [data]);
                 isThr = false;
-            }, throttleDelay);
+                return;
+            }
+            renderTimeout = setTimeout(() => {
+                                fn.apply(this, [data]);
+                                isThr = false;
+                            }, 0);
         }
     };
 }
@@ -252,10 +257,6 @@ if (!window.gradio_config.auth_required) {
     const ws = new WebSocket(ws_protocol + "://" + window.location.host + "/ws");
 
     ws.onmessage = throttle((data) => {
-        if (data.setUpdatesSecond) {
-            throttleDelay = 1000/data.setUpdatesSecond;
-            return;
-        }
         handleMorphdomUpdate(data.html);
     });
 }
