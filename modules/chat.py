@@ -663,7 +663,7 @@ def chatbot_wrapper(text, state, regenerate=False, _continue=False, loading_mess
 
     # Add timestamp for assistant's response at the start of generation
     row_idx = len(output['internal']) - 1
-    update_message_metadata(output['metadata'], "assistant", row_idx, timestamp=get_current_timestamp())
+    update_message_metadata(output['metadata'], "assistant", row_idx, timestamp=get_current_timestamp(), model_name=shared.model_name)
 
     # Generate
     reply = None
@@ -800,7 +800,7 @@ def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
     last_save_time = time.monotonic()
     save_interval = 8
     for i, history in enumerate(generate_chat_reply(text, state, regenerate, _continue, loading_message=True, for_ui=True)):
-        websocket_send(chat_html_wrapper(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu']))
+        websocket_send(chat_html_wrapper(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'], last_message_only=(i > 0)))
         yield history
 
         current_time = time.monotonic()
@@ -811,7 +811,7 @@ def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
 
     # Ensure that the entire message is rendered
     websocket_send(chat_html_wrapper(history, state['name1'], state['name2'], state['mode'], state['chat_style'],
-                                    state['character_menu']), force_render=True)
+                                    state['character_menu'], last_message_only=True), force_render=True)
 
     save_history(history, state['unique_id'], state['character_menu'], state['mode'])
 
@@ -836,9 +836,12 @@ def remove_last_message(history):
     return html.unescape(last[0]), history
 
 
-def send_dummy_message(textbox, state):
+def send_dummy_message(text, state):
     history = state['history']
-    text = textbox['text']
+
+    # Handle both dict and string inputs
+    if isinstance(text, dict):
+        text = text['text']
 
     # Initialize metadata if not present
     if 'metadata' not in history:
@@ -852,9 +855,12 @@ def send_dummy_message(textbox, state):
     return history
 
 
-def send_dummy_reply(textbox, state):
+def send_dummy_reply(text, state):
     history = state['history']
-    text = textbox['text']
+
+    # Handle both dict and string inputs
+    if isinstance(text, dict):
+        text = text['text']
 
     # Initialize metadata if not present
     if 'metadata' not in history:
