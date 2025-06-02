@@ -229,19 +229,24 @@ function removeLastClick() {
   document.getElementById("Remove-last").click();
 }
 
-var throttleDelay = 10;
+var renderTimeout = null;
 function throttle(fn) {
     let isThr = false;
 
     return function (...args) {
         const data = JSON.parse(args[0].data);
         if (!isThr || data.forceRender) {
-            fn.apply(this, [data]);
             isThr = true;
-
-            setTimeout(() => {
+            if (data.forceRender) {
+                clearTimeout(renderTimeout);
+                fn.apply(this, [data]);
                 isThr = false;
-            }, throttleDelay);
+                return;
+            }
+            renderTimeout = setTimeout(() => {
+                                fn.apply(this, [data]);
+                                isThr = false;
+                            }, 0);
         }
     };
 }
@@ -252,19 +257,28 @@ if (!window.gradio_config.auth_required) {
     const ws = new WebSocket(ws_protocol + "://" + window.location.host + "/ws");
 
     ws.onmessage = throttle((data) => {
-        if (data.setUpdatesSecond) {
-            throttleDelay = 1000/data.setUpdatesSecond;
-            return;
-        }
-        handleMorphdomUpdate(data.html);
+        handleMorphdomUpdate(data);
     });
 }
 
 
-function handleMorphdomUpdate(text) {
+function handleMorphdomUpdate(data) {
+  // Determine target element and use it as query scope
+  var target_element, target_html;
+  if (data.last_message_only) {
+    const childNodes = document.getElementsByClassName("messages")[0].childNodes;
+    target_element = childNodes[childNodes.length - 1];
+    target_html = data.html;
+  } else {
+    target_element = document.getElementById("chat").parentNode;
+    target_html =  "<div class=\"prose svelte-1ybaih5\">" + data.html + "</div>";
+  }
+
+  const queryScope = target_element;
+
   // Track open blocks
   const openBlocks = new Set();
-  document.querySelectorAll(".thinking-block").forEach(block => {
+  queryScope.querySelectorAll(".thinking-block").forEach(block => {
     const blockId = block.getAttribute("data-block-id");
     // If block exists and is open, add to open set
     if (blockId && block.hasAttribute("open")) {
@@ -274,7 +288,7 @@ function handleMorphdomUpdate(text) {
 
   // Store scroll positions for any open blocks
   const scrollPositions = {};
-  document.querySelectorAll(".thinking-block[open]").forEach(block => {
+  queryScope.querySelectorAll(".thinking-block[open]").forEach(block => {
     const content = block.querySelector(".thinking-content");
     const blockId = block.getAttribute("data-block-id");
     if (content && blockId) {
@@ -287,8 +301,8 @@ function handleMorphdomUpdate(text) {
   });
 
   morphdom(
-    document.getElementById("chat").parentNode,
-    "<div class=\"prose svelte-1ybaih5\">" + text + "</div>",
+    target_element,
+    target_html,
     {
       onBeforeElUpdated: function(fromEl, toEl) {
         // Preserve code highlighting
@@ -340,7 +354,7 @@ function handleMorphdomUpdate(text) {
   );
 
   // Add toggle listeners for new blocks
-  document.querySelectorAll(".thinking-block").forEach(block => {
+  queryScope.querySelectorAll(".thinking-block").forEach(block => {
     if (!block._hasToggleListener) {
       block.addEventListener("toggle", function(e) {
         if (this.open) {
