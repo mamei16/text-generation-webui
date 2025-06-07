@@ -105,7 +105,7 @@ def _generate_reply(question, state, stopping_strings=None, is_chat=False, escap
         if not is_chat:
             reply = apply_extensions('output', reply, state)
 
-        yield reply
+    yield reply
 
 
 def encode(prompt, add_special_tokens=True, add_bos_token=True, truncation_length=None):
