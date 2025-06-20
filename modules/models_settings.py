@@ -9,6 +9,7 @@ import gradio as gr
 import yaml
 
 from modules import chat, loaders, metadata_gguf, shared, ui
+from modules.logging_colors import logger
 
 
 def get_fallback_settings():
@@ -56,7 +57,13 @@ def get_model_metadata(model):
         if path.is_file():
             model_file = path
         else:
-            model_file = list(path.glob('*.gguf'))[0]
+            gguf_files = list(path.glob('*.gguf'))
+            if not gguf_files:
+                error_msg = f"No .gguf models found in directory: {path}"
+                logger.error(error_msg)
+                raise FileNotFoundError(error_msg)
+
+            model_file = gguf_files[0]
 
         metadata = load_gguf_metadata_with_cache(model_file)
 
@@ -70,7 +77,7 @@ def get_model_metadata(model):
                 model_settings['compress_pos_emb'] = metadata[k]
             elif k.endswith('rope.scaling.factor'):
                 model_settings['compress_pos_emb'] = metadata[k]
-            elif k.endswith('block_count'):
+            elif k.endswith('.block_count'):
                 model_settings['gpu_layers'] = metadata[k] + 1
                 model_settings['max_gpu_layers'] = metadata[k] + 1
 
@@ -171,6 +178,8 @@ def infer_loader(model_name, model_settings, hf_quant_method=None):
     path_to_model = Path(f'{shared.args.model_dir}/{model_name}')
     if not path_to_model.exists():
         loader = None
+    elif shared.args.portable:
+        loader = 'llama.cpp'
     elif len(list(path_to_model.glob('*.gguf'))) > 0:
         loader = 'llama.cpp'
     elif re.match(r'.*\.gguf', model_name.lower()):
@@ -329,6 +338,7 @@ def estimate_vram(gguf_file, gpu_layers, ctx_size, cache_type):
     # Extract values from metadata
     n_layers = None
     n_kv_heads = None
+    n_attention_heads = None  # Fallback for models without separate KV heads
     embedding_dim = None
 
     for key, value in metadata.items():
@@ -336,8 +346,13 @@ def estimate_vram(gguf_file, gpu_layers, ctx_size, cache_type):
             n_layers = value
         elif key.endswith('.attention.head_count_kv'):
             n_kv_heads = max(value) if isinstance(value, list) else value
+        elif key.endswith('.attention.head_count'):
+            n_attention_heads = max(value) if isinstance(value, list) else value
         elif key.endswith('.embedding_length'):
             embedding_dim = value
+
+    if n_kv_heads is None:
+        n_kv_heads = n_attention_heads
 
     if gpu_layers > n_layers:
         gpu_layers = n_layers
@@ -444,26 +459,19 @@ def update_gpu_layers_and_vram(loader, model, gpu_layers, ctx_size, cache_type, 
         else:
             return (0, gpu_layers) if auto_adjust else 0
 
+    # Get model settings including user preferences
+    model_settings = get_model_metadata(model)
+
     current_layers = gpu_layers
-    max_layers = gpu_layers
+    max_layers = model_settings.get('max_gpu_layers', 256)
 
     if auto_adjust:
-        # Get model settings including user preferences
-        model_settings = get_model_metadata(model)
-
-        # Get the true maximum layers
-        max_layers = model_settings.get('max_gpu_layers', model_settings.get('gpu_layers', gpu_layers))
-
         # Check if this is a user-saved setting
         user_config = shared.user_config
         model_regex = Path(model).name + '$'
         has_user_setting = model_regex in user_config and 'gpu_layers' in user_config[model_regex]
 
-        if has_user_setting:
-            # For user settings, just use the current value (which already has user pref)
-            # but ensure the slider maximum is correct
-            current_layers = gpu_layers  # Already has user setting
-        else:
+        if not has_user_setting:
             # No user setting, auto-adjust from the maximum
             current_layers = max_layers  # Start from max
 

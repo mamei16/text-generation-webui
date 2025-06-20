@@ -40,15 +40,16 @@ def minify_css(css: str) -> str:
     return css
 
 
-with open(Path(__file__).resolve().parent / '../css/html_readable_style.css', 'r') as f:
+with open(Path(__file__).resolve().parent / '../css/html_readable_style.css', 'r', encoding='utf-8') as f:
     readable_css = f.read()
-with open(Path(__file__).resolve().parent / '../css/html_instruct_style.css', 'r') as f:
+with open(Path(__file__).resolve().parent / '../css/html_instruct_style.css', 'r', encoding='utf-8') as f:
     instruct_css = f.read()
 
 # Custom chat styles
 chat_styles = {}
 for k in get_available_chat_styles():
-    chat_styles[k] = open(Path(f'css/chat_style-{k}.css'), 'r').read()
+    with open(Path(f'css/chat_style-{k}.css'), 'r', encoding='utf-8') as f:
+        chat_styles[k] = f.read()
 
 # Handle styles that derive from other styles
 for k in chat_styles:
@@ -535,17 +536,23 @@ def generate_instruct_html(history, last_message_only=False):
     return output
 
 
+def get_character_image_with_cache_buster():
+    """Get character image URL with cache busting based on file modification time"""
+    cache_path = Path("user_data/cache/pfp_character_thumb.png")
+    if cache_path.exists():
+        mtime = int(cache_path.stat().st_mtime)
+        return f'<img src="file/user_data/cache/pfp_character_thumb.png?{mtime}" class="pfp_character">'
+
+    return ''
+
+
 def generate_cai_chat_html(history, name1, name2, style, character, reset_cache=False, last_message_only=False):
     if not last_message_only:
         output = f'<style>{chat_styles[style]}</style><div class="chat" id="chat"><div class="messages">'
     else:
         output = ""
 
-    # Profile images
-    img_bot = (
-        f'<img src="file/user_data/cache/pfp_character_thumb.png?{character}" class="pfp_character">'
-        if Path("user_data/cache/pfp_character_thumb.png").exists() else ''
-    )
+    img_bot = get_character_image_with_cache_buster()
 
     def create_message(role, content, raw_content):
         """Inner function for CAI-style messages."""
@@ -603,64 +610,6 @@ def generate_cai_chat_html(history, name1, name2, style, character, reset_cache=
     return output
 
 
-def generate_chat_html(history, name1, name2, reset_cache=False, last_message_only=False):
-    if not last_message_only:
-        output = f'<style>{chat_styles["wpp"]}</style><div class="chat" id="chat"><div class="messages">'
-    else:
-        output = ""
-
-    def create_message(role, content, raw_content):
-        """Inner function for WPP-style messages."""
-        text_class = "text-you" if role == "user" else "text-bot"
-
-        # Get role-specific data
-        timestamp = format_message_timestamp(history, role, i)
-        attachments = format_message_attachments(history, role, i)
-
-        # Create info button if timestamp exists
-        info_message = ""
-        if timestamp:
-            tooltip_text = get_message_tooltip(history, role, i)
-            info_message = info_button.replace('title="message"', f'title="{html.escape(tooltip_text)}"')
-
-        return (
-            f'<div class="message" '
-            f'data-raw="{html.escape(raw_content, quote=True)}"'
-            f'data-index={i}>'
-            f'<div class="{text_class}">'
-            f'<div class="message-body">{content}</div>'
-            f'{attachments}'
-            f'{actions_html(history, i, role, info_message)}'
-            f'</div>'
-            f'</div>'
-        )
-
-    # Determine range
-    start_idx = len(history['visible']) - 1 if last_message_only else 0
-    end_idx = len(history['visible'])
-
-    for i in range(start_idx, end_idx):
-        row_visible = history['visible'][i]
-        row_internal = history['internal'][i]
-
-        # Convert content
-        if last_message_only:
-            converted_visible = [None, convert_to_markdown_wrapped(row_visible[1], message_id=i, use_cache=i != len(history['visible']) - 1)]
-        else:
-            converted_visible = [convert_to_markdown_wrapped(entry, message_id=i, use_cache=i != len(history['visible']) - 1) for entry in row_visible]
-
-        # Generate messages
-        if not last_message_only and converted_visible[0]:
-            output += create_message("user", converted_visible[0], row_internal[0])
-
-        output += create_message("assistant", converted_visible[1], row_internal[1])
-
-    if not last_message_only:
-        output += "</div></div>"
-
-    return output
-
-
 def time_greeting():
     current_hour = datetime.datetime.now().hour
     if 5 <= current_hour < 12:
@@ -677,8 +626,6 @@ def chat_html_wrapper(history, name1, name2, mode, style, character, reset_cache
         result = f'<div class="chat" id="chat">{greeting}</div>'
     elif mode == 'instruct':
         result = generate_instruct_html(history, last_message_only=last_message_only)
-    elif style == 'wpp':
-        result = generate_chat_html(history, name1, name2, last_message_only=last_message_only)
     else:
         result = generate_cai_chat_html(history, name1, name2, style, character, reset_cache=reset_cache, last_message_only=last_message_only)
 

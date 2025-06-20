@@ -219,13 +219,16 @@ def generate_chat_prompt(user_input, state, **kwargs):
             user_key = f"user_{row_idx}"
             enhanced_user_msg = user_msg
 
-            # Add attachment content if present
-            if user_key in metadata and "attachments" in metadata[user_key]:
+            # Add attachment content if present AND if past attachments are enabled
+            if (state.get('include_past_attachments', True) and user_key in metadata and "attachments" in metadata[user_key]):
                 attachments_text = ""
                 for attachment in metadata[user_key]["attachments"]:
                     filename = attachment.get("name", "file")
                     content = attachment.get("content", "")
-                    attachments_text += f"\nName: {filename}\nContents:\n\n=====\n{content}\n=====\n\n"
+                    if attachment.get("type") == "text/html" and attachment.get("url"):
+                        attachments_text += f"\nName: {filename}\nURL: {attachment['url']}\nContents:\n\n=====\n{content}\n=====\n\n"
+                    else:
+                        attachments_text += f"\nName: {filename}\nContents:\n\n=====\n{content}\n=====\n\n"
 
                 if attachments_text:
                     enhanced_user_msg = f"{user_msg}\n\nATTACHMENTS:\n{attachments_text}"
@@ -252,7 +255,10 @@ def generate_chat_prompt(user_input, state, **kwargs):
                 for attachment in metadata[user_key]["attachments"]:
                     filename = attachment.get("name", "file")
                     content = attachment.get("content", "")
-                    attachments_text += f"\nName: {filename}\nContents:\n\n=====\n{content}\n=====\n\n"
+                    if attachment.get("type") == "text/html" and attachment.get("url"):
+                        attachments_text += f"\nName: {filename}\nURL: {attachment['url']}\nContents:\n\n=====\n{content}\n=====\n\n"
+                    else:
+                        attachments_text += f"\nName: {filename}\nContents:\n\n=====\n{content}\n=====\n\n"
 
                 if attachments_text:
                     user_input = f"{user_input}\n\nATTACHMENTS:\n{attachments_text}"
@@ -325,14 +331,13 @@ def generate_chat_prompt(user_input, state, **kwargs):
 
             # Resort to truncating the user input
             else:
-
                 user_message = messages[-1]['content']
 
                 # Bisect the truncation point
-                left, right = 0, len(user_message) - 1
+                left, right = 0, len(user_message)
 
-                while right - left > 1:
-                    mid = (left + right) // 2
+                while left < right:
+                    mid = (left + right + 1) // 2
 
                     messages[-1]['content'] = user_message[:mid]
                     prompt = make_prompt(messages)
@@ -341,7 +346,7 @@ def generate_chat_prompt(user_input, state, **kwargs):
                     if encoded_length <= max_length:
                         left = mid
                     else:
-                        right = mid
+                        right = mid - 1
 
                 messages[-1]['content'] = user_message[:left]
                 prompt = make_prompt(messages)
@@ -350,7 +355,17 @@ def generate_chat_prompt(user_input, state, **kwargs):
                     logger.error(f"Failed to build the chat prompt. The input is too long for the available context length.\n\nTruncation length: {state['truncation_length']}\nmax_new_tokens: {state['max_new_tokens']} (is it too high?)\nAvailable context length: {max_length}\n")
                     raise ValueError
                 else:
-                    logger.warning(f"The input has been truncated. Context length: {state['truncation_length']}, max_new_tokens: {state['max_new_tokens']}, available context length: {max_length}.")
+                    # Calculate token counts for the log message
+                    original_user_tokens = get_encoded_length(user_message)
+                    truncated_user_tokens = get_encoded_length(user_message[:left])
+                    total_context = max_length + state['max_new_tokens']
+
+                    logger.warning(
+                        f"User message truncated from {original_user_tokens} to {truncated_user_tokens} tokens. "
+                        f"Context full: {max_length} input tokens ({total_context} total, {state['max_new_tokens']} for output). "
+                        f"Increase ctx-size while loading the model to avoid truncation."
+                    )
+
                     break
 
             prompt = make_prompt(messages)
@@ -503,6 +518,9 @@ def add_message_attachment(history, row_idx, file_path, is_user=True):
             # Process PDF file
             content = extract_pdf_text(path)
             file_type = "application/pdf"
+        elif file_extension == '.docx':
+            content = extract_docx_text(path)
+            file_type = "application/docx"
         else:
             # Default handling for text files
             with open(path, 'r', encoding='utf-8') as f:
@@ -539,6 +557,80 @@ def extract_pdf_text(pdf_path):
     except Exception as e:
         logger.error(f"Error extracting text from PDF: {e}")
         return f"[Error extracting PDF text: {str(e)}]"
+
+
+def extract_docx_text(docx_path):
+    """
+    Extract text from a .docx file, including headers,
+    body (paragraphs and tables), and footers.
+    """
+    try:
+        import docx
+
+        doc = docx.Document(docx_path)
+        parts = []
+
+        # 1) Extract non-empty header paragraphs from each section
+        for section in doc.sections:
+            for para in section.header.paragraphs:
+                text = para.text.strip()
+                if text:
+                    parts.append(text)
+
+        # 2) Extract body blocks (paragraphs and tables) in document order
+        parent_elm = doc.element.body
+        for child in parent_elm.iterchildren():
+            if isinstance(child, docx.oxml.text.paragraph.CT_P):
+                para = docx.text.paragraph.Paragraph(child, doc)
+                text = para.text.strip()
+                if text:
+                    parts.append(text)
+
+            elif isinstance(child, docx.oxml.table.CT_Tbl):
+                table = docx.table.Table(child, doc)
+                for row in table.rows:
+                    cells = [cell.text.strip() for cell in row.cells]
+                    parts.append("\t".join(cells))
+
+        # 3) Extract non-empty footer paragraphs from each section
+        for section in doc.sections:
+            for para in section.footer.paragraphs:
+                text = para.text.strip()
+                if text:
+                    parts.append(text)
+
+        return "\n".join(parts)
+
+    except Exception as e:
+        logger.error(f"Error extracting text from DOCX: {e}")
+        return f"[Error extracting DOCX text: {str(e)}]"
+
+
+def generate_search_query(user_message, state):
+    """Generate a search query from user message using the LLM"""
+    # Augment the user message with search instruction
+    augmented_message = f"{user_message}\n\n=====\n\nPlease turn the message above into a short web search query in the same language as the message. Respond with only the search query, nothing else."
+
+    # Use a minimal state for search query generation but keep the full history
+    search_state = state.copy()
+    search_state['max_new_tokens'] = 64
+    search_state['auto_max_new_tokens'] = False
+    search_state['enable_thinking'] = False
+    search_state['start_with'] = ""
+
+    # Generate the full prompt using existing history + augmented message
+    formatted_prompt = generate_chat_prompt(augmented_message, search_state)
+
+    query = ""
+    for reply in generate_reply(formatted_prompt, search_state, stopping_strings=[], is_chat=True):
+        query = reply
+
+    # Strip and remove surrounding quotes if present
+    query = query.strip()
+    if len(query) >= 2 and query.startswith('"') and query.endswith('"'):
+        query = query[1:-1]
+
+    return query
 
 
 def chatbot_wrapper(text, state, regenerate=False, _continue=False, loading_message=True, for_ui=False):
@@ -676,7 +768,18 @@ def chatbot_wrapper(text, state, regenerate=False, _continue=False, loading_mess
         if is_stream:
             yield output
 
-    output['visible'][-1][1] = apply_extensions('output', output['visible'][-1][1], state, is_chat=True)
+    if _continue:
+        # Reprocess the entire internal text for extensions (like translation)
+        full_internal = output['internal'][-1][1]
+        if state['mode'] in ['chat', 'chat-instruct']:
+            full_visible = re.sub("(<USER>|<user>|{{user}})", state['name1'], full_internal)
+        else:
+            full_visible = full_internal
+
+        full_visible = html.escape(full_visible)
+        output['visible'][-1][1] = apply_extensions('output', full_visible, state, is_chat=True)
+    else:
+        output['visible'][-1][1] = apply_extensions('output', output['visible'][-1][1], state, is_chat=True)
 
     # Final sync for version metadata (in case streaming was disabled)
     if regenerate:
@@ -1000,16 +1103,27 @@ def load_latest_history(state):
     '''
 
     if shared.args.multi_user:
-        return start_new_chat(state)
+        return start_new_chat(state), None
 
     histories = find_all_histories(state)
 
     if len(histories) > 0:
-        history = load_history(histories[0], state['character_menu'], state['mode'])
-    else:
-        history = start_new_chat(state)
+        # Try to load the last visited chat for this character/mode
+        chat_state = load_last_chat_state()
+        key = get_chat_state_key(state['character_menu'], state['mode'])
+        last_chat_id = chat_state.get("last_chats", {}).get(key)
 
-    return history
+        # If we have a stored last chat and it still exists, use it
+        if last_chat_id and last_chat_id in histories:
+            unique_id = last_chat_id
+        else:
+            # Fall back to most recent (current behavior)
+            unique_id = histories[0]
+
+        history = load_history(unique_id, state['character_menu'], state['mode'])
+        return history, unique_id
+    else:
+        return start_new_chat(state), None
 
 
 def load_history_after_deletion(state, idx):
@@ -1039,6 +1153,42 @@ def update_character_menu_after_deletion(idx):
     idx = min(int(idx), len(characters) - 1)
     idx = max(0, idx)
     return gr.update(choices=characters, value=characters[idx])
+
+
+def get_chat_state_key(character, mode):
+    """Generate a key for storing last chat state"""
+    if mode == 'instruct':
+        return 'instruct'
+    else:
+        return f"chat_{character}"
+
+
+def load_last_chat_state():
+    """Load the last chat state from file"""
+    state_file = Path('user_data/logs/chat_state.json')
+    if state_file.exists():
+        try:
+            with open(state_file, 'r', encoding='utf-8') as f:
+                return json.loads(f.read())
+        except:
+            pass
+
+    return {"last_chats": {}}
+
+
+def save_last_chat_state(character, mode, unique_id):
+    """Save the last visited chat for a character/mode"""
+    if shared.args.multi_user:
+        return
+
+    state = load_last_chat_state()
+    key = get_chat_state_key(character, mode)
+    state["last_chats"][key] = unique_id
+
+    state_file = Path('user_data/logs/chat_state.json')
+    state_file.parent.mkdir(exist_ok=True)
+    with open(state_file, 'w', encoding='utf-8') as f:
+        f.write(json.dumps(state, indent=2))
 
 
 def load_history(unique_id, character, mode):
@@ -1166,6 +1316,43 @@ def load_character(character, name1, name2):
 
     greeting = data.get(greeting_field, greeting)
     return name1, name2, picture, greeting, context
+
+
+def restore_character_for_ui(state):
+    """Reset character fields to the currently loaded character's saved values"""
+    if state['character_menu'] and state['character_menu'] != 'None':
+        try:
+            name1, name2, picture, greeting, context = load_character(state['character_menu'], state['name1'], state['name2'])
+
+            state['name2'] = name2
+            state['greeting'] = greeting
+            state['context'] = context
+            state['character_picture'] = picture  # This triggers cache update via generate_pfp_cache
+
+            return state, name2, context, greeting, picture
+
+        except Exception as e:
+            logger.error(f"Failed to reset character '{state['character_menu']}': {e}")
+            return clear_character_for_ui(state)
+    else:
+        return clear_character_for_ui(state)
+
+
+def clear_character_for_ui(state):
+    """Clear all character fields and picture cache"""
+    state['name2'] = shared.settings['name2']
+    state['context'] = shared.settings['context']
+    state['greeting'] = shared.settings['greeting']
+    state['character_picture'] = None
+
+    # Clear the cache files
+    cache_folder = Path(shared.args.disk_cache_dir)
+    for cache_file in ['pfp_character.png', 'pfp_character_thumb.png']:
+        cache_path = Path(f'{cache_folder}/{cache_file}')
+        if cache_path.exists():
+            cache_path.unlink()
+
+    return state, state['name2'], state['context'], state['greeting'], None
 
 
 def load_instruction_template(template):
@@ -1437,6 +1624,9 @@ def handle_unique_id_select(state):
     history = load_history(state['unique_id'], state['character_menu'], state['mode'])
     redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
 
+    # Save this as the last visited chat
+    save_last_chat_state(state['character_menu'], state['mode'], state['unique_id'])
+
     convert_to_markdown.cache_clear()
 
     return history
@@ -1458,7 +1648,10 @@ def handle_start_new_chat_click(state):
 
 
 def handle_delete_chat_confirm_click(state):
-    index = str(find_all_histories(state).index(state['unique_id']))
+    filtered_histories = find_all_histories_with_first_prompts(state)
+    filtered_ids = [h[1] for h in filtered_histories]
+    index = str(filtered_ids.index(state['unique_id']))
+
     delete_history(state['unique_id'], state['character_menu'], state['mode'])
     history, unique_id = load_history_after_deletion(state, index)
     redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
@@ -1470,7 +1663,6 @@ def handle_delete_chat_confirm_click(state):
         unique_id,
         gr.update(visible=False),
         gr.update(visible=True),
-        gr.update(visible=False)
     ]
 
 
@@ -1633,14 +1825,14 @@ def handle_character_menu_change(state):
     state['greeting'] = greeting
     state['context'] = context
 
-    history = load_latest_history(state)
+    history, loaded_unique_id = load_latest_history(state)
     histories = find_all_histories_with_first_prompts(state)
     redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
 
     convert_to_markdown.cache_clear()
 
     if len(histories) > 0:
-        past_chats_update = gr.update(choices=histories, value=histories[0][1])
+        past_chats_update = gr.update(choices=histories, value=loaded_unique_id or histories[0][1])
     else:
         past_chats_update = gr.update(choices=histories)
 
@@ -1651,19 +1843,43 @@ def handle_character_menu_change(state):
         picture,
         greeting,
         context,
-        past_chats_update,
+        past_chats_update
     ]
 
 
+def handle_character_picture_change(picture):
+    """Update or clear cache when character picture changes"""
+    cache_folder = Path(shared.args.disk_cache_dir)
+    if not cache_folder.exists():
+        cache_folder.mkdir()
+
+    if picture is not None:
+        # Save to cache
+        picture.save(Path(f'{cache_folder}/pfp_character.png'), format='PNG')
+        thumb = make_thumbnail(picture)
+        thumb.save(Path(f'{cache_folder}/pfp_character_thumb.png'), format='PNG')
+    else:
+        # Remove cache files when picture is cleared
+        for cache_file in ['pfp_character.png', 'pfp_character_thumb.png']:
+            cache_path = Path(f'{cache_folder}/{cache_file}')
+            if cache_path.exists():
+                cache_path.unlink()
+
+
 def handle_mode_change(state):
-    history = load_latest_history(state)
+    history, loaded_unique_id = load_latest_history(state)
     histories = find_all_histories_with_first_prompts(state)
+
+    # Ensure character picture cache exists
+    if state['mode'] in ['chat', 'chat-instruct'] and state['character_menu'] and state['character_menu'] != 'None':
+        generate_pfp_cache(state['character_menu'])
+
     redraw_html(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'])
 
     convert_to_markdown.cache_clear()
 
     if len(histories) > 0:
-        past_chats_update = gr.update(choices=histories, value=histories[0][1])
+        past_chats_update = gr.update(choices=histories, value=loaded_unique_id or histories[0][1])
     else:
         past_chats_update = gr.update(choices=histories)
 
@@ -1719,10 +1935,16 @@ def handle_send_instruction_click(state):
 
     output = generate_chat_prompt("Input", state)
 
-    return output
+    if state["show_two_notebook_columns"]:
+        return gr.update(), output, ""
+    else:
+        return output, gr.update(), gr.update()
 
 
 def handle_send_chat_click(state):
     output = generate_chat_prompt("", state, _continue=True)
 
-    return output
+    if state["show_two_notebook_columns"]:
+        return gr.update(), output, ""
+    else:
+        return output, gr.update(), gr.update()

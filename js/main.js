@@ -223,18 +223,26 @@ function isElementVisibleOnScreen(element) {
 }
 
 function doSyntaxHighlighting() {
-  const messageBodies = document.querySelectorAll(".message-body");
+  const messageBodies = document.getElementById("chat").querySelectorAll(".message-body");
 
   if (messageBodies.length > 0) {
     observer.disconnect();
 
-    messageBodies.forEach((messageBody) => {
+    let hasSeenVisible = false;
+
+    // Go from last message to first
+    for (let i = messageBodies.length - 1; i >= 0; i--) {
+      const messageBody = messageBodies[i];
+
       if (isElementVisibleOnScreen(messageBody)) {
+        hasSeenVisible = true;
+
         // Handle both code and math in a single pass through each message
         const codeBlocks = messageBody.querySelectorAll("pre code:not([data-highlighted])");
         codeBlocks.forEach((codeBlock) => {
           hljs.highlightElement(codeBlock);
           codeBlock.setAttribute("data-highlighted", "true");
+          codeBlock.classList.add("pretty_scrollbar");
         });
 
         renderMathInElement(messageBody, {
@@ -245,8 +253,12 @@ function doSyntaxHighlighting() {
             { left: "\\[", right: "\\]", display: true },
           ],
         });
+      } else if (hasSeenVisible) {
+        // We've seen visible messages but this one is not visible
+        // Since we're going from last to first, we can break
+        break;
       }
-    });
+    }
 
     observer.observe(targetElement, config);
   }
@@ -560,6 +572,7 @@ function moveToChatTab() {
 
   newParent.insertBefore(grandParent, newParent.children[newPosition]);
   document.getElementById("save-character").style.display = "none";
+  document.getElementById("restore-character").style.display = "none";
 }
 
 function restoreOriginalPosition() {
@@ -571,6 +584,7 @@ function restoreOriginalPosition() {
     }
 
     document.getElementById("save-character").style.display = "";
+    document.getElementById("restore-character").style.display = "";
     movedElement.style.display = "";
     movedElement.children[0].style.minWidth = "";
   }
@@ -771,11 +785,43 @@ initializeSidebars();
 
 // Add click event listeners to toggle buttons
 pastChatsToggle.addEventListener("click", () => {
+  const isCurrentlyOpen = !pastChatsRow.classList.contains("sidebar-hidden");
   toggleSidebar(pastChatsRow, pastChatsToggle);
+
+  // On desktop, open/close both sidebars at the same time
+  if (!isMobile()) {
+    if (isCurrentlyOpen) {
+      // If we just closed the left sidebar, also close the right sidebar
+      if (!chatControlsRow.classList.contains("sidebar-hidden")) {
+        toggleSidebar(chatControlsRow, chatControlsToggle, true);
+      }
+    } else {
+      // If we just opened the left sidebar, also open the right sidebar
+      if (chatControlsRow.classList.contains("sidebar-hidden")) {
+        toggleSidebar(chatControlsRow, chatControlsToggle, false);
+      }
+    }
+  }
 });
 
 chatControlsToggle.addEventListener("click", () => {
+  const isCurrentlyOpen = !chatControlsRow.classList.contains("sidebar-hidden");
   toggleSidebar(chatControlsRow, chatControlsToggle);
+
+  // On desktop, open/close both sidebars at the same time
+  if (!isMobile()) {
+    if (isCurrentlyOpen) {
+      // If we just closed the right sidebar, also close the left sidebar
+      if (!pastChatsRow.classList.contains("sidebar-hidden")) {
+        toggleSidebar(pastChatsRow, pastChatsToggle, true);
+      }
+    } else {
+      // If we just opened the right sidebar, also open the left sidebar
+      if (pastChatsRow.classList.contains("sidebar-hidden")) {
+        toggleSidebar(pastChatsRow, pastChatsToggle, false);
+      }
+    }
+  }
 });
 
 navigationToggle.addEventListener("click", () => {
@@ -872,8 +918,118 @@ function navigateLastAssistantMessage(direction) {
 }
 
 //------------------------------------------------
+// Paste Handler for Long Text
+//------------------------------------------------
+
+const MAX_PLAIN_TEXT_LENGTH = 2500;
+
+function setupPasteHandler() {
+  const textbox = document.querySelector("#chat-input textarea[data-testid=\"textbox\"]");
+  const fileInput = document.querySelector("#chat-input input[data-testid=\"file-upload\"]");
+
+  if (!textbox || !fileInput) {
+    setTimeout(setupPasteHandler, 500);
+    return;
+  }
+
+  textbox.addEventListener("paste", async (event) => {
+    const text = event.clipboardData?.getData("text");
+
+    if (text && text.length > MAX_PLAIN_TEXT_LENGTH && document.querySelector("#paste_to_attachment input[data-testid=\"checkbox\"]")?.checked) {
+      event.preventDefault();
+
+      const file = new File([text], "pasted_text.txt", {
+        type: "text/plain",
+        lastModified: Date.now()
+      });
+
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(file);
+      fileInput.files = dataTransfer.files;
+      fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  });
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", setupPasteHandler);
+} else {
+  setupPasteHandler();
+}
+
+//------------------------------------------------
 // Tooltips
 //------------------------------------------------
 
 // File upload button
 document.querySelector("#chat-input .upload-button").title = "Upload text files, PDFs, and DOCX documents";
+
+//------------------------------------------------
+// Inline icons for deleting past chats
+//------------------------------------------------
+
+function addMiniDeletes() {
+  document.querySelectorAll("#past-chats label:not(.has-delete)").forEach(label => {
+    const container = document.createElement("span");
+    container.className = "delete-container";
+
+    label.classList.add("chat-label-with-delete");
+
+    const trashBtn = document.createElement("button");
+    trashBtn.innerHTML = "🗑️";
+    trashBtn.className = "trash-btn";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.innerHTML = "✕";
+    cancelBtn.className = "cancel-btn";
+
+    const confirmBtn = document.createElement("button");
+    confirmBtn.innerHTML = "✓";
+    confirmBtn.className = "confirm-btn";
+
+    label.addEventListener("mouseenter", () => {
+      container.style.opacity = "1";
+    });
+
+    label.addEventListener("mouseleave", () => {
+      container.style.opacity = "0";
+    });
+
+    trashBtn.onclick = (e) => {
+      e.stopPropagation();
+      label.querySelector("input").click();
+      document.querySelector("#delete_chat").click();
+      trashBtn.style.display = "none";
+      cancelBtn.style.display = "flex";
+      confirmBtn.style.display = "flex";
+    };
+
+    cancelBtn.onclick = (e) => {
+      e.stopPropagation();
+      document.querySelector("#delete_chat-cancel").click();
+      resetButtons();
+    };
+
+    confirmBtn.onclick = (e) => {
+      e.stopPropagation();
+      document.querySelector("#delete_chat-confirm").click();
+      resetButtons();
+    };
+
+    function resetButtons() {
+      trashBtn.style.display = "inline";
+      cancelBtn.style.display = "none";
+      confirmBtn.style.display = "none";
+    }
+
+    container.append(trashBtn, cancelBtn, confirmBtn);
+    label.appendChild(container);
+    label.classList.add("has-delete");
+  });
+}
+
+new MutationObserver(() => addMiniDeletes()).observe(
+  document.querySelector("#past-chats"),
+  {childList: true, subtree: true}
+);
+addMiniDeletes();

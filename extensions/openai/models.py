@@ -15,28 +15,16 @@ def get_current_model_info():
 
 
 def list_models():
-    result = {
+    return {'model_names': get_available_models()}
+
+
+def list_models_openai_format():
+    """Returns model list in OpenAI API format"""
+    model_names = get_available_models()
+    return {
         "object": "list",
-        "data": []
+        "data": [model_info_dict(name) for name in model_names]
     }
-    # get models and add them to the result
-    for model in get_available_models():
-        result["data"].append(model_info_dict(model))
-
-    return result
-
-
-def list_dummy_models():
-    result = {
-        "object": "list",
-        "data": []
-    }
-
-    # these are expected by so much, so include some here as a dummy
-    for model in ['gpt-3.5-turbo', 'text-embedding-ada-002']:
-        result["data"].append(model_info_dict(model))
-
-    return result
 
 
 def model_info_dict(model_name: str) -> dict:
