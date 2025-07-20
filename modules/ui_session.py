@@ -17,7 +17,7 @@ def create_ui():
 
             with gr.Column():
                 gr.Markdown("## Extensions & flags")
-                shared.gradio['save_settings'] = gr.Button('Save settings to user_data/settings.yaml', elem_classes='refresh-button', interactive=not mu)
+                shared.gradio['save_settings'] = gr.Button('Save settings to user_data/settings_mytweaks.yaml', elem_classes='refresh-button', interactive=not mu)
                 shared.gradio['reset_interface'] = gr.Button("Apply flags/extensions and restart", interactive=not mu)
                 with gr.Row():
                     with gr.Column():
@@ -51,7 +51,7 @@ def handle_save_settings(state, preset, extensions, show_controls, theme):
     contents = ui.save_settings(state, preset, extensions, show_controls, theme, manual_save=True)
     return [
         contents,
-        "settings.yaml",
+        "settings_mytweaks.yaml",
         "user_data/",
         gr.update(visible=True)
     ]

@@ -351,7 +351,7 @@ def save_settings(state, preset, extensions_list, show_controls, theme_state, ma
                             output[_id] = params[param]
     else:
         # Preserve existing extensions and extension parameters during autosave
-        settings_path = Path('user_data') / 'settings.yaml'
+        settings_path = Path('user_data') / 'settings_mytweaks.yaml'
         if settings_path.exists():
             try:
                 with open(settings_path, 'r', encoding='utf-8') as f:
@@ -406,7 +406,7 @@ def _perform_debounced_save():
     try:
         if _last_interface_state is not None:
             contents = save_settings(_last_interface_state, _last_preset, _last_extensions, _last_show_controls, _last_theme_state, manual_save=False)
-            settings_path = Path('user_data') / 'settings.yaml'
+            settings_path = Path('user_data') / 'settings_mytweaks.yaml'
             settings_path.parent.mkdir(exist_ok=True)
             with open(settings_path, 'w', encoding='utf-8') as f:
                 f.write(contents)
