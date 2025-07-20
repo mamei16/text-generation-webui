@@ -509,8 +509,11 @@ def setup_auto_save():
     for element_name in change_elements:
         if element_name in shared.gradio:
             shared.gradio[element_name].change(
-                gather_interface_values, gradio(shared.input_elements), gradio('interface_state')).then(
-                store_current_state_and_debounce, gradio('interface_state', 'preset_menu', 'extensions_menu', 'show_controls', 'theme_state'), None, show_progress=False)
+                gather_interface_values, gradio(shared.input_elements),
+                gradio('interface_state'))#.then(store_current_state_and_debounce, gradio('interface_state',
+                                          #                                               'preset_menu', 'extensions_menu',
+                                          #                                               'show_controls', 'theme_state'),
+                                          #      None, show_progress=False)
 
 
 def create_refresh_button(refresh_component, refresh_method, refreshed_args, elem_class, interactive=True):
