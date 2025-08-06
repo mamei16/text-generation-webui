@@ -15,7 +15,6 @@ from modules.logging_colors import logger
 def get_fallback_settings():
     return {
         'bf16': False,
-        'use_eager_attention': False,
         'ctx_size': 2048,
         'rope_freq_base': 0,
         'compress_pos_emb': 1,
@@ -23,7 +22,6 @@ def get_fallback_settings():
         'truncation_length': shared.settings['truncation_length'],
         'truncation_length_info': shared.settings['truncation_length'],
         'skip_special_tokens': shared.settings['skip_special_tokens'],
-        'custom_stopping_strings': shared.settings['custom_stopping_strings'],
     }
 
 
@@ -92,8 +90,10 @@ def get_model_metadata(model):
             template = template.replace('eos_token', "'{}'".format(eos_token))
             template = template.replace('bos_token', "'{}'".format(bos_token))
 
+            template = re.sub(r"\{\{-?\s*raise_exception\(.*?\)\s*-?\}\}", "", template, flags=re.DOTALL)
             template = re.sub(r'raise_exception\([^)]*\)', "''", template)
             template = re.sub(r'{% if add_generation_prompt %}.*', '', template, flags=re.DOTALL)
+            template = re.sub(r'elif loop\.last and not add_generation_prompt', 'elif False', template)  # Handle GPT-OSS
             model_settings['instruction_template'] = 'Custom (obtained from model metadata)'
             model_settings['instruction_template_str'] = template
 
@@ -119,23 +119,30 @@ def get_model_metadata(model):
                 if metadata['rope_scaling']['type'] == 'linear':
                     model_settings['compress_pos_emb'] = metadata['rope_scaling']['factor']
 
-            # For Gemma-2
             if 'torch_dtype' in metadata and metadata['torch_dtype'] == 'bfloat16':
                 model_settings['bf16'] = True
 
-            # For Gemma-2
-            if 'architectures' in metadata and isinstance(metadata['architectures'], list) and 'Gemma2ForCausalLM' in metadata['architectures']:
-                model_settings['use_eager_attention'] = True
-
     # Try to find the Jinja instruct template
     path = Path(f'{shared.args.model_dir}/{model}') / 'tokenizer_config.json'
+    template = None
+
+    # 1. Prioritize reading from chat_template.jinja if it exists
+    jinja_path = Path(f'{shared.args.model_dir}/{model}') / 'chat_template.jinja'
+    if jinja_path.exists():
+        with open(jinja_path, 'r', encoding='utf-8') as f:
+            template = f.read()
+
     if path.exists():
         metadata = json.loads(open(path, 'r', encoding='utf-8').read())
-        if 'chat_template' in metadata:
+
+        # 2. Only read from metadata if we haven't already loaded from .jinja
+        if template is None and 'chat_template' in metadata:
             template = metadata['chat_template']
             if isinstance(template, list):
                 template = template[0]['template']
 
+        # 3. If a template was found from either source, process it
+        if template:
             for k in ['eos_token', 'bos_token']:
                 if k in metadata:
                     value = metadata[k]
@@ -144,8 +151,10 @@ def get_model_metadata(model):
 
                     template = template.replace(k, "'{}'".format(value))
 
+            template = re.sub(r"\{\{-?\s*raise_exception\(.*?\)\s*-?\}\}", "", template, flags=re.DOTALL)
             template = re.sub(r'raise_exception\([^)]*\)', "''", template)
             template = re.sub(r'{% if add_generation_prompt %}.*', '', template, flags=re.DOTALL)
+            template = re.sub(r'elif loop\.last and not add_generation_prompt', 'elif False', template)  # Handle GPT-OSS
             model_settings['instruction_template'] = 'Custom (obtained from model metadata)'
             model_settings['instruction_template_str'] = template
 
