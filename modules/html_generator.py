@@ -117,14 +117,21 @@ def extract_thinking_blocks(string):
     THINK_START_TAG = "&lt;think&gt;"
     THINK_END_TAG = "&lt;/think&gt;"
 
-    # Look for opening tag
-    start_pos = string.lstrip().find(THINK_START_TAG)
-    if start_pos == -1:
-        return [], [string]
+    # Look for think tag first
+    start_pos = string.find(THINK_START_TAG)
+    end_pos = string.find(THINK_END_TAG)
 
-    think_start_re = re.compile(THINK_START_TAG)
     thinking_contents = []
     remaining_contents = []
+
+    # no start tag, only end tag
+    if start_pos == -1 and end_pos != -1:
+        think_end_pos = end_pos + len(THINK_END_TAG)
+        thinking_contents.append(string[:think_end_pos])
+        remaining_contents.append(string[think_end_pos:])
+        return thinking_contents, remaining_contents
+
+    think_start_re = re.compile(THINK_START_TAG)
     # Adjust start position to account for any leading whitespace
     start_pos_matches = think_start_re.finditer(string)
     end_pos = 0
@@ -149,8 +156,46 @@ def extract_thinking_blocks(string):
             # Both tags found - extract content between them
             thinking_contents.append(string[content_start:end_pos])
 
-    remaining_contents.append(string[end_pos + len(THINK_END_TAG):])
-    return thinking_contents, remaining_contents
+    if thinking_contents:
+        remaining_contents.append(string[end_pos + len(THINK_END_TAG):])
+        return thinking_contents, remaining_contents
+
+    # If think tags not found, try alternative format
+    ALT_START = "&lt;|channel|&gt;analysis&lt;|message|&gt;"
+    ALT_END = "&lt;|end|&gt;"
+    ALT_CONTENT_START = "&lt;|start|&gt;assistant&lt;|channel|&gt;final&lt;|message|&gt;"
+
+    alt_start_pos = string.find(ALT_START)
+    alt_end_pos = string.find(ALT_END)
+    alt_content_pos = string.find(ALT_CONTENT_START)
+
+    if alt_start_pos != -1 or alt_end_pos != -1:
+        if alt_start_pos == -1:
+            thought_start = 0
+        else:
+            thought_start = alt_start_pos + len(ALT_START)
+
+        # If no explicit end tag but content start exists, use content start as end
+        if alt_end_pos == -1:
+            if alt_content_pos != -1:
+                thought_end = alt_content_pos
+                content_start = alt_content_pos + len(ALT_CONTENT_START)
+            else:
+                thought_end = len(string)
+                content_start = len(string)
+        else:
+            thought_end = alt_end_pos
+            content_start = alt_content_pos + len(ALT_CONTENT_START) if alt_content_pos != -1 else alt_end_pos + len(
+                ALT_END)
+
+        thinking_content = string[thought_start:thought_end]
+        remaining_content = string[content_start:]
+        return [thinking_content], [remaining_content]
+
+    # Return if neither format is found
+    return [], []
+
+
 
 
 @functools.lru_cache(maxsize=None)

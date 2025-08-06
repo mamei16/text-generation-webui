@@ -142,13 +142,10 @@ def encode(prompt, add_special_tokens=True, add_bos_token=True, truncation_lengt
                         bos_tensor = torch.tensor([[shared.tokenizer.bos_token_id]])
                         input_ids = torch.cat((bos_tensor, input_ids), 1)
 
-                    # Prevent double BOS tokens from jinja templates
-                    while len(input_ids[0]) > 1 and input_ids[0][0] == shared.tokenizer.bos_token_id and input_ids[0][1] == shared.tokenizer.bos_token_id:
-                        input_ids = input_ids[:, 1:]
-                else:
-                    # Remove BOS tokens when not wanted
-                    while len(input_ids[0]) > 0 and input_ids[0][0] == shared.tokenizer.bos_token_id:
-                        input_ids = input_ids[:, 1:]
+                # Always prevent double BOS tokens (regardless of add_bos_token setting)
+                while len(input_ids[0]) > 1 and input_ids[0][0] == shared.tokenizer.bos_token_id and input_ids[0][
+                    1] == shared.tokenizer.bos_token_id:
+                    input_ids = input_ids[:, 1:]
 
         if truncation_length is not None:
             input_ids = input_ids[:, -truncation_length:]
