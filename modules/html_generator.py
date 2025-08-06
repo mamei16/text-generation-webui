@@ -193,7 +193,7 @@ def extract_thinking_blocks(string):
         return [thinking_content], [remaining_content]
 
     # Return if neither format is found
-    return [], []
+    return [], [string]
 
 
 
