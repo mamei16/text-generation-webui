@@ -40,7 +40,7 @@ def _generate_reply(question, state, stopping_strings=None, is_chat=False, escap
             yield ''
             return
 
-        if shared.model.__class__.__name__ in ['LlamaServer', 'Exllamav2Model', 'TensorRTLLMModel']:
+        if shared.model.__class__.__name__ in ['LlamaServer', 'Exllamav2Model', 'Exllamav3Model', 'TensorRTLLMModel']:
             generate_func = generate_reply_custom
         else:
             generate_func = generate_reply_HF
@@ -102,8 +102,8 @@ def _generate_reply(question, state, stopping_strings=None, is_chat=False, escap
         if stop_found or (state['max_tokens_second'] > 0 and shared.stop_everything):
             break
 
-        if not is_chat:
-            reply = apply_extensions('output', reply, state)
+    if not is_chat:
+        reply = apply_extensions('output', reply, state)
 
     yield reply
 
@@ -128,13 +128,12 @@ def encode(prompt, add_special_tokens=True, add_bos_token=True, truncation_lengt
 
         from modules.torch_utils import get_device
 
-        if shared.model.__class__.__name__ in ['Exllamav2Model', 'TensorRTLLMModel']:
+        if shared.model.__class__.__name__ in ['Exllamav2Model', 'Exllamav3Model', 'TensorRTLLMModel']:
             input_ids = shared.tokenizer.encode(str(prompt))
-            if shared.model.__class__.__name__ != 'Exllamav2Model':
+            if shared.model.__class__.__name__ not in ['Exllamav2Model', 'Exllamav3Model']:
                 input_ids = np.array(input_ids).reshape(1, len(input_ids))
         else:
             input_ids = shared.tokenizer.encode(str(prompt), return_tensors='pt', add_special_tokens=add_special_tokens)
-
             if hasattr(shared.tokenizer, 'bos_token_id') and shared.tokenizer.bos_token_id is not None:
                 if add_bos_token:
                     # Add BOS token if missing
@@ -143,14 +142,13 @@ def encode(prompt, add_special_tokens=True, add_bos_token=True, truncation_lengt
                         input_ids = torch.cat((bos_tensor, input_ids), 1)
 
                 # Always prevent double BOS tokens (regardless of add_bos_token setting)
-                while len(input_ids[0]) > 1 and input_ids[0][0] == shared.tokenizer.bos_token_id and input_ids[0][
-                    1] == shared.tokenizer.bos_token_id:
+                while len(input_ids[0]) > 1 and input_ids[0][0] == shared.tokenizer.bos_token_id and input_ids[0][1] == shared.tokenizer.bos_token_id:
                     input_ids = input_ids[:, 1:]
 
         if truncation_length is not None:
             input_ids = input_ids[:, -truncation_length:]
 
-        if shared.model.__class__.__name__ in ['Exllamav2Model', 'TensorRTLLMModel'] or shared.args.cpu:
+        if shared.model.__class__.__name__ in ['Exllamav2Model', 'Exllamav3Model', 'TensorRTLLMModel'] or shared.args.cpu:
             return input_ids
         else:
             device = get_device()

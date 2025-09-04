@@ -248,6 +248,27 @@ def process_markdown_content(string):
     if not string:
         return ""
 
+    # Define a unique placeholder for LaTeX asterisks
+    LATEX_ASTERISK_PLACEHOLDER = "LATEXASTERISKPLACEHOLDER"
+
+    def protect_asterisks_in_latex(match):
+        """A replacer function for re.sub to protect asterisks in multiple LaTeX formats."""
+        # Check which delimiter group was captured
+        if match.group(1) is not None:  # Content from $$...$$
+            content = match.group(1)
+            modified_content = content.replace('*', LATEX_ASTERISK_PLACEHOLDER)
+            return f'$${modified_content}$$'
+        elif match.group(2) is not None:  # Content from \[...\]
+            content = match.group(2)
+            modified_content = content.replace('*', LATEX_ASTERISK_PLACEHOLDER)
+            return f'\\[{modified_content}\\]'
+        elif match.group(3) is not None:  # Content from \(...\)
+            content = match.group(3)
+            modified_content = content.replace('*', LATEX_ASTERISK_PLACEHOLDER)
+            return f'\\({modified_content}\\)'
+
+        return match.group(0)  # Fallback
+
     # Make \[ \]  LaTeX equations inline
     pattern = r'^\s*\\\[\s*\n([\s\S]*?)\n\s*\\\]\s*$'
     replacement = r'\\[ \1 \\]'
@@ -276,6 +297,10 @@ def process_markdown_content(string):
     string = string.replace('\\begin{equation*}', '$$')
     string = string.replace('\\end{equation*}', '$$')
     string = re.sub(r"(.)```", r"\1\n```", string)
+
+    # Protect asterisks within all LaTeX blocks before markdown conversion
+    latex_pattern = re.compile(r'\$\$(.*?)\$\$|\\\[(.*?)\\\]|\\\((.*?)\\\)', re.DOTALL)
+    string = latex_pattern.sub(protect_asterisks_in_latex, string)
 
     result = ''
     is_code = False
@@ -334,6 +359,12 @@ def process_markdown_content(string):
     else:
         # Convert to HTML using markdown
         html_output = markdown.markdown(result, extensions=['fenced_code', 'tables', SaneListExtension()])
+
+    # Restore the LaTeX asterisks after markdown conversion
+    html_output = html_output.replace(LATEX_ASTERISK_PLACEHOLDER, '*')
+
+    # Remove extra newlines before </code>
+    html_output = re.sub(r'\s*</code>', '</code>', html_output)
 
     # Unescape code blocks
     pattern = re.compile(r'<code[^>]*>(.*?)</code>', re.DOTALL)
@@ -435,16 +466,26 @@ def format_message_attachments(history, role, index):
         for attachment in attachments:
             name = html.escape(attachment["name"])
 
-            # Make clickable if URL exists
-            if "url" in attachment:
-                name = f'<a href="{html.escape(attachment["url"])}" target="_blank" rel="noopener noreferrer">{name}</a>'
+            if attachment.get("type") == "image":
+                image_data = attachment.get("image_data", "")
+                attachments_html += (
+                    f'<div class="attachment-box image-attachment">'
+                    f'<img src="{image_data}" alt="{name}" class="image-preview" />'
+                    f'<div class="attachment-name">{name}</div>'
+                    f'</div>'
+                )
+            else:
+                # Make clickable if URL exists (web search)
+                if "url" in attachment:
+                    name = f'<a href="{html.escape(attachment["url"])}" target="_blank" rel="noopener noreferrer">{name}</a>'
 
-            attachments_html += (
-                f'<div class="attachment-box">'
-                f'<div class="attachment-icon">{attachment_svg}</div>'
-                f'<div class="attachment-name">{name}</div>'
-                f'</div>'
-            )
+                attachments_html += (
+                    f'<div class="attachment-box">'
+                    f'<div class="attachment-icon">{attachment_svg}</div>'
+                    f'<div class="attachment-name">{name}</div>'
+                    f'</div>'
+                )
+
         attachments_html += '</div>'
         return attachments_html
 

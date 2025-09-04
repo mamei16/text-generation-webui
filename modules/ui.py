@@ -142,7 +142,6 @@ def list_model_elements():
         'num_experts_per_token',
         'load_in_8bit',
         'load_in_4bit',
-        'flash_attn',
         'attn_implementation',
         'cpu',
         'disk',
@@ -152,9 +151,11 @@ def list_model_elements():
         'mlock',
         'numa',
         'use_double_quant',
+        'use_eager_attention',
         'bf16',
         'autosplit',
         'enable_tp',
+        'tp_backend',
         'no_flash_attn',
         'no_xformers',
         'no_sdpa',
@@ -167,6 +168,7 @@ def list_model_elements():
         'gpu_layers_draft',
         'device_draft',
         'ctx_size_draft',
+        'mmproj',
     ]
 
     return elements
@@ -293,9 +295,7 @@ def gather_interface_values(*args):
         shared.persistent_interface_state.pop('textbox')
 
     # Prevent history loss if backend is restarted but UI is not refreshed
-    if ((output['history'] is None or (len(output['history'].get('visible', [])) == 0
-                                      and len(output['history'].get('internal', [])) == 0))
-            and output['unique_id'] is not None):
+    if (output['history'] is None or (len(output['history'].get('visible', [])) == 0 and len(output['history'].get('internal', [])) == 0)) and output['unique_id'] is not None:
         output['history'] = load_history(output['unique_id'], output['character_menu'], output['mode'])
 
     return output

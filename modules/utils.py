@@ -86,6 +86,19 @@ def check_model_loaded():
     return True, None
 
 
+def resolve_model_path(model_name_or_path):
+    """
+    Resolves a model path, checking for a direct path
+    before the default models directory.
+    """
+
+    path_candidate = Path(model_name_or_path)
+    if path_candidate.exists():
+        return path_candidate
+    else:
+        return Path(f'{shared.args.model_dir}/{model_name_or_path}')
+
+
 def get_available_models():
     # Get all GGUF files
     gguf_files = get_available_ggufs()
@@ -152,6 +165,19 @@ def get_available_ggufs():
                 model_list.append(str(rel_path))
 
     return sorted(model_list, key=natural_keys)
+
+
+def get_available_mmproj():
+    mmproj_dir = Path('user_data/mmproj')
+    if not mmproj_dir.exists():
+        return ['None']
+
+    mmproj_files = []
+    for item in mmproj_dir.iterdir():
+        if item.is_file() and item.suffix.lower() in ('.gguf', '.bin'):
+            mmproj_files.append(item.name)
+
+    return ['None'] + sorted(mmproj_files, key=natural_keys)
 
 
 def get_available_presets():

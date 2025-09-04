@@ -10,12 +10,13 @@ import yaml
 
 from modules import chat, loaders, metadata_gguf, shared, ui
 from modules.logging_colors import logger
+from modules.utils import resolve_model_path
 
 
 def get_fallback_settings():
     return {
         'bf16': False,
-        'ctx_size': 2048,
+        'ctx_size': 8192,
         'rope_freq_base': 0,
         'compress_pos_emb': 1,
         'alpha_value': 1,
@@ -26,6 +27,7 @@ def get_fallback_settings():
 
 
 def get_model_metadata(model):
+    model_path = resolve_model_path(model)
     model_settings = {}
 
     # Get settings from user_data/models/config.yaml and user_data/models/config-user.yaml
@@ -35,7 +37,7 @@ def get_model_metadata(model):
             for k in settings[pat]:
                 model_settings[k] = settings[pat][k]
 
-    path = Path(f'{shared.args.model_dir}/{model}/config.json')
+    path = model_path / 'config.json'
     if path.exists():
         hf_metadata = json.loads(open(path, 'r', encoding='utf-8').read())
     else:
@@ -51,7 +53,7 @@ def get_model_metadata(model):
 
     # GGUF metadata
     if model_settings['loader'] == 'llama.cpp':
-        path = Path(f'{shared.args.model_dir}/{model}')
+        path = model_path
         if path.is_file():
             model_file = path
         else:
@@ -66,7 +68,7 @@ def get_model_metadata(model):
         metadata = load_gguf_metadata_with_cache(model_file)
 
         for k in metadata:
-            if k.endswith('context_length'):
+            if k.endswith('.context_length'):
                 model_settings['ctx_size'] = min(metadata[k], 8192)
                 model_settings['truncation_length_info'] = metadata[k]
             elif k.endswith('rope.freq_base'):
@@ -92,8 +94,6 @@ def get_model_metadata(model):
 
             template = re.sub(r"\{\{-?\s*raise_exception\(.*?\)\s*-?\}\}", "", template, flags=re.DOTALL)
             template = re.sub(r'raise_exception\([^)]*\)', "''", template)
-            template = re.sub(r'{% if add_generation_prompt %}.*', '', template, flags=re.DOTALL)
-            template = re.sub(r'elif loop\.last and not add_generation_prompt', 'elif False', template)  # Handle GPT-OSS
             model_settings['instruction_template'] = 'Custom (obtained from model metadata)'
             model_settings['instruction_template_str'] = template
 
@@ -106,9 +106,16 @@ def get_model_metadata(model):
 
             for k in ['max_position_embeddings', 'model_max_length', 'max_seq_len']:
                 if k in metadata:
-                    model_settings['truncation_length'] = metadata[k]
-                    model_settings['truncation_length_info'] = metadata[k]
-                    model_settings['ctx_size'] = min(metadata[k], 8192)
+                    value = metadata[k]
+                elif k in metadata.get('text_config', {}):
+                    value = metadata['text_config'][k]
+                else:
+                    continue
+
+                model_settings['truncation_length'] = value
+                model_settings['truncation_length_info'] = value
+                model_settings['ctx_size'] = min(value, 8192)
+                break
 
             if 'rope_theta' in metadata:
                 model_settings['rope_freq_base'] = metadata['rope_theta']
@@ -123,25 +130,35 @@ def get_model_metadata(model):
                 model_settings['bf16'] = True
 
     # Try to find the Jinja instruct template
-    path = Path(f'{shared.args.model_dir}/{model}') / 'tokenizer_config.json'
+    path = model_path / 'tokenizer_config.json'
     template = None
 
     # 1. Prioritize reading from chat_template.jinja if it exists
-    jinja_path = Path(f'{shared.args.model_dir}/{model}') / 'chat_template.jinja'
+    jinja_path = model_path / 'chat_template.jinja'
     if jinja_path.exists():
         with open(jinja_path, 'r', encoding='utf-8') as f:
             template = f.read()
 
+    # 2. If no .jinja file, try chat_template.json
+    if template is None:
+        json_template_path = model_path / 'chat_template.json'
+        if json_template_path.exists():
+            with open(json_template_path, 'r', encoding='utf-8') as f:
+                json_data = json.load(f)
+                if 'chat_template' in json_data:
+                    template = json_data['chat_template']
+
+    # 3. Fall back to tokenizer_config.json metadata
     if path.exists():
         metadata = json.loads(open(path, 'r', encoding='utf-8').read())
 
-        # 2. Only read from metadata if we haven't already loaded from .jinja
+        # Only read from metadata if we haven't already loaded from .jinja or .json
         if template is None and 'chat_template' in metadata:
             template = metadata['chat_template']
             if isinstance(template, list):
                 template = template[0]['template']
 
-        # 3. If a template was found from either source, process it
+        # 4. If a template was found from any source, process it
         if template:
             for k in ['eos_token', 'bos_token']:
                 if k in metadata:
@@ -153,8 +170,6 @@ def get_model_metadata(model):
 
             template = re.sub(r"\{\{-?\s*raise_exception\(.*?\)\s*-?\}\}", "", template, flags=re.DOTALL)
             template = re.sub(r'raise_exception\([^)]*\)', "''", template)
-            template = re.sub(r'{% if add_generation_prompt %}.*', '', template, flags=re.DOTALL)
-            template = re.sub(r'elif loop\.last and not add_generation_prompt', 'elif False', template)  # Handle GPT-OSS
             model_settings['instruction_template'] = 'Custom (obtained from model metadata)'
             model_settings['instruction_template_str'] = template
 
@@ -184,7 +199,7 @@ def get_model_metadata(model):
 
 
 def infer_loader(model_name, model_settings, hf_quant_method=None):
-    path_to_model = Path(f'{shared.args.model_dir}/{model_name}')
+    path_to_model = resolve_model_path(model_name)
     if not path_to_model.exists():
         loader = None
     elif shared.args.portable:
@@ -194,11 +209,11 @@ def infer_loader(model_name, model_settings, hf_quant_method=None):
     elif re.match(r'.*\.gguf', model_name.lower()):
         loader = 'llama.cpp'
     elif hf_quant_method == 'exl3':
-        loader = 'ExLlamav3_HF'
+        loader = 'ExLlamav3'
     elif hf_quant_method in ['exl2', 'gptq']:
         loader = 'ExLlamav2_HF'
     elif re.match(r'.*exl3', model_name.lower()):
-        loader = 'ExLlamav3_HF'
+        loader = 'ExLlamav3'
     elif re.match(r'.*exl2', model_name.lower()):
         loader = 'ExLlamav2_HF'
     else:
@@ -234,7 +249,7 @@ def apply_model_settings_to_state(model, state):
     model_settings = get_model_metadata(model)
     if 'loader' in model_settings:
         loader = model_settings.pop('loader')
-        if not (loader == 'ExLlamav2_HF' and state['loader'] in ['ExLlamav2']):
+        if not ((loader == 'ExLlamav2_HF' and state['loader'] == 'ExLlamav2') or (loader == 'ExLlamav3_HF' and state['loader'] == 'ExLlamav3')):
             state['loader'] = loader
 
     for k in model_settings:
@@ -340,7 +355,7 @@ def get_model_size_mb(model_file: Path) -> float:
 
 
 def estimate_vram(gguf_file, gpu_layers, ctx_size, cache_type):
-    model_file = Path(f'{shared.args.model_dir}/{gguf_file}')
+    model_file = resolve_model_path(gguf_file)
     metadata = load_gguf_metadata_with_cache(model_file)
     size_in_mb = get_model_size_mb(model_file)
 
