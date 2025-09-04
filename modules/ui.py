@@ -151,7 +151,6 @@ def list_model_elements():
         'mlock',
         'numa',
         'use_double_quant',
-        'use_eager_attention',
         'bf16',
         'autosplit',
         'enable_tp',
