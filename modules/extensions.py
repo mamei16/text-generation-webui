@@ -56,8 +56,9 @@ def load_extensions():
         extra_log_str = ""
         gpu_context_manager = contextlib.nullcontext()
         if name in extension_to_gpu:
-            extra_log_str = f" on GPU {extension_to_gpu[name]} ({torch.cuda.get_device_properties(0).name})"
-            gpu_context_manager = torch.cuda.device("cuda:" + extension_to_gpu[name])
+            target_gpu_id = extension_to_gpu[name]
+            extra_log_str = f" on GPU {target_gpu_id} ({torch.cuda.get_device_properties(target_gpu_id).name})"
+            gpu_context_manager = torch.cuda.device("cuda:" + target_gpu_id)
 
         if name != 'api':
             logger.info(f'Loading the extension "{name}"' + extra_log_str)
