@@ -148,7 +148,7 @@ def load_image_model(model_name, dtype='bfloat16', attn_backend='sdpa', cpu_offl
         pipeline_type = get_pipeline_type(pipe)
 
         if not cpu_offload:
-            pipe.to(<gpu_id>)
+            pipe.to(get_device())
 
         modules = ["transformer", "unet"]
 
@@ -170,7 +170,7 @@ def load_image_model(model_name, dtype='bfloat16', attn_backend='sdpa', cpu_offl
                     break
 
         if cpu_offload:
-            pipe.enable_model_cpu_offload(gpu_id=<gpu_id>)
+            pipe.enable_model_cpu_offload()
 
         shared.image_model = pipe
         shared.image_model_name = model_name
