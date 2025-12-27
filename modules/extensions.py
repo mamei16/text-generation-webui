@@ -3,8 +3,10 @@ import traceback
 from functools import partial
 from inspect import signature
 from pathlib import Path
+import contextlib
 
 import gradio as gr
+import torch
 
 import modules.shared as shared
 from modules.logging_colors import logger
@@ -25,32 +27,57 @@ def apply_settings(extension, name):
             extension.params[param] = shared.settings[_id]
 
 
+def load_extension_to_gpu():
+    extension_to_gpu = {}
+    try:
+        with open(Path('user_data') / 'gpu_map.txt', "r") as f:
+            lines = f.readlines()
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            extension, gpu_id = line.split()
+            extension_to_gpu[extension.strip()] = gpu_id.strip()
+    except FileNotFoundError:
+        logger.error("File 'gpu_map.txt' does not exist!")
+    return extension_to_gpu
+
+
 def load_extensions():
     global state, setup_called
     state = {}
+
+    extension_to_gpu = load_extension_to_gpu()
 
     for i, name in enumerate(shared.args.extensions):
         if name not in available_extensions:
             continue
 
+        extra_log_str = ""
+        gpu_context_manager = contextlib.nullcontext()
+        if name in extension_to_gpu:
+            extra_log_str = f" on GPU {extension_to_gpu[name]} ({torch.cuda.get_device_properties(0).name})"
+            gpu_context_manager = torch.cuda.device("cuda:" + extension_to_gpu[name])
+
         if name != 'api':
-            logger.info(f'Loading the extension "{name}"')
+            logger.info(f'Loading the extension "{name}"' + extra_log_str)
 
         try:
-            # Prefer user extension, fall back to system extension
-            user_script_path = Path(f'user_data/extensions/{name}/script.py')
-            if user_script_path.exists():
-                extension = importlib.import_module(f"user_data.extensions.{name}.script")
-            else:
-                extension = importlib.import_module(f"extensions.{name}.script")
+            with gpu_context_manager:
+                # Prefer user extension, fall back to system extension
+                user_script_path = Path(f'user_data/extensions/{name}/script.py')
+                if user_script_path.exists():
+                    extension = importlib.import_module(f"user_data.extensions.{name}.script")
+                else:
+                    extension = importlib.import_module(f"extensions.{name}.script")
 
-            if extension not in setup_called:
-                apply_settings(extension, name)
-                if hasattr(extension, "setup"):
-                    extension.setup()
-                setup_called.add(extension)
+                if extension not in setup_called:
+                    apply_settings(extension, name)
+                    if hasattr(extension, "setup"):
+                        extension.setup()
+                    setup_called.add(extension)
 
-            state[name] = [True, i, extension]  # Store extension object
+                state[name] = [True, i, extension]  # Store extension object
 
         except ModuleNotFoundError:
             extension_location = Path('user_data/extensions') / name if user_script_path.exists() else Path('extensions') / name
