@@ -1,7 +1,7 @@
 """
 This module is responsible for modifying the chat prompt and history.
 """
-import re
+import regex as re
 
 import extensions.superboogav2.parameters as parameters
 from extensions.superboogav2.utils import (

@@ -4,7 +4,7 @@ import functools
 import html
 import json
 import pprint
-import re
+import regex as re
 import time
 from datetime import datetime
 from functools import partial

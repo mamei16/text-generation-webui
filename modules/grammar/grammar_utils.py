@@ -9,7 +9,7 @@ All credits go to the author.
 '''
 
 import logging
-import re
+import regex as re
 import time
 from abc import ABC
 from functools import lru_cache

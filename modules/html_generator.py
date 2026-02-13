@@ -3,7 +3,7 @@ import functools
 from itertools import zip_longest
 import html
 import os
-import re
+import regex as re
 import time
 from pathlib import Path
 
