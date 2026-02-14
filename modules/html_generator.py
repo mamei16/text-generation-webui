@@ -299,7 +299,8 @@ def process_markdown_content(string):
     string = re.sub(r"(.)```", r"\1\n```", string)
 
     # Protect asterisks within all LaTeX blocks before markdown conversion
-    latex_pattern = re.compile(r'\$\$(.*?)\$\$|\\\[(.*?)\\\]|\\\((.*?)\\\)', re.DOTALL)
+    latex_pattern = re.compile(r'(?:(?<=^|[\r\n]|\s))(?<!`)\$\$([^`]*?)\$\$|\\\[(.*?)\\\]|\\\((.*?)\\\)',
+                               re.DOTALL)
     string = latex_pattern.sub(protect_asterisks_in_latex, string)
 
     result = ''
