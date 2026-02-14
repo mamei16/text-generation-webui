@@ -9,6 +9,7 @@ loaders_and_params = OrderedDict({
         'threads',
         'threads_batch',
         'batch_size',
+        'ubatch_size',
         'ctx_size',
         'cache_type',
         'tensor_split',
@@ -45,7 +46,6 @@ loaders_and_params = OrderedDict({
         'disk',
         'use_double_quant',
         'bf16',
-        'trust_remote_code',
         'no_use_fast',
     ],
     'ExLlamav3_HF': [
@@ -53,7 +53,6 @@ loaders_and_params = OrderedDict({
         'cache_type',
         'gpu_split',
         'cfg_cache',
-        'trust_remote_code',
         'no_use_fast',
         'enable_tp',
         'tp_backend',
@@ -82,7 +81,6 @@ loaders_and_params = OrderedDict({
         'no_xformers',
         'no_sdpa',
         'cfg_cache',
-        'trust_remote_code',
         'no_use_fast',
     ],
     'ExLlamav2': [

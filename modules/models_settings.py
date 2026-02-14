@@ -83,14 +83,17 @@ def get_model_metadata(model):
 
         if 'tokenizer.chat_template' in metadata:
             template = metadata['tokenizer.chat_template']
-            eos_token = metadata['tokenizer.ggml.tokens'][metadata['tokenizer.ggml.eos_token_id']]
+            if 'tokenizer.ggml.eos_token_id' in metadata:
+                eos_token = metadata['tokenizer.ggml.tokens'][metadata['tokenizer.ggml.eos_token_id']]
+            else:
+                eos_token = ""
             if 'tokenizer.ggml.bos_token_id' in metadata:
                 bos_token = metadata['tokenizer.ggml.tokens'][metadata['tokenizer.ggml.bos_token_id']]
             else:
                 bos_token = ""
 
-            template = template.replace('eos_token', "'{}'".format(eos_token))
-            template = template.replace('bos_token', "'{}'".format(bos_token))
+            shared.bos_token = bos_token
+            shared.eos_token = eos_token
 
             template = re.sub(r"\{\{-?\s*raise_exception\(.*?\)\s*-?\}\}", "", template, flags=re.DOTALL)
             template = re.sub(r'raise_exception\([^)]*\)', "''", template)
@@ -160,13 +163,16 @@ def get_model_metadata(model):
 
         # 4. If a template was found from any source, process it
         if template:
+            shared.bos_token = '<s>'
+            shared.eos_token = '</s>'
+
             for k in ['eos_token', 'bos_token']:
                 if k in metadata:
                     value = metadata[k]
                     if isinstance(value, dict):
                         value = value['content']
 
-                    template = template.replace(k, "'{}'".format(value))
+                    setattr(shared, k, value)
 
             template = re.sub(r"\{\{-?\s*raise_exception\(.*?\)\s*-?\}\}", "", template, flags=re.DOTALL)
             template = re.sub(r'raise_exception\([^)]*\)', "''", template)

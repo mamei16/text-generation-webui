@@ -4,8 +4,6 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
 import torch
-from exllamav3 import Cache, Config, Model
-from exllamav3.cache import CacheLayer_fp16, CacheLayer_quant
 from torch.nn import CrossEntropyLoss
 from transformers import (
     GenerationConfig,
@@ -15,6 +13,8 @@ from transformers import (
 )
 from transformers.modeling_outputs import CausalLMOutputWithPast
 
+from exllamav3 import Cache, Config, Model
+from exllamav3.cache import CacheLayer_fp16, CacheLayer_quant
 from modules import shared
 from modules.logging_colors import logger
 
@@ -27,11 +27,13 @@ except Exception:
 
 class Exllamav3HF(PreTrainedModel, GenerationMixin):
     def __init__(self, model_dir):
-        super().__init__(PretrainedConfig())
-        self.generation_config = GenerationConfig()
+        hf_config = PretrainedConfig.from_pretrained(model_dir)
+        super().__init__(hf_config)
 
-        config = Config.from_directory(model_dir)
-        self.ex_model = Model.from_config(config)
+        exl3_config = Config.from_directory(model_dir)
+
+        self.generation_config = GenerationConfig()
+        self.ex_model = Model.from_config(exl3_config)
 
         # Calculate the closest multiple of 256 at or above the chosen value
         max_tokens = shared.args.ctx_size

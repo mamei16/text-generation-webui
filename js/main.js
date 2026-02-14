@@ -318,49 +318,50 @@ function doSyntaxHighlighting() {
 
   if (messageBodies.length > 0) {
     observer.disconnect();
+    try {
+        let hasSeenVisible = false;
 
-    let hasSeenVisible = false;
+        // Go from last message to first
+        for (let i = messageBodies.length - 1; i >= 0; i--) {
+          const messageBody = messageBodies[i];
 
-    // Go from last message to first
-    for (let i = messageBodies.length - 1; i >= 0; i--) {
-      const messageBody = messageBodies[i];
+          if (isElementVisibleOnScreen(messageBody)) {
+            hasSeenVisible = true;
 
-      if (isElementVisibleOnScreen(messageBody)) {
-        hasSeenVisible = true;
-
-        // Handle both code and math in a single pass through each message
-        const codeBlocks = messageBody.querySelectorAll("pre code:not([data-highlighted])");
-        codeBlocks.forEach((codeBlock) => {
-          hljs.highlightElement(codeBlock);
-          codeBlock.setAttribute("data-highlighted", "true");
-          codeBlock.classList.add("pretty_scrollbar");
-        });
-
-        // Only render math in visible elements
-        const mathContainers = messageBody.querySelectorAll("p, span, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption, caption, dd, dt");
-        mathContainers.forEach(container => {
-          if (isElementVisibleOnScreen(container)) {
-            const replacedIndices = [];
-            container.innerHTML = maskNonLaTeXDollars(container.innerHTML, replacedIndices);
-            renderMathInElement(container, {
-              delimiters: [
-                { left: "$$", right: "$$", display: true },
-                { left: "$", right: "$", display: false },
-                { left: "\\(", right: "\\)", display: false },
-                { left: "\\[", right: "\\]", display: true },
-              ],
+            // Handle both code and math in a single pass through each message
+            const codeBlocks = messageBody.querySelectorAll("pre code:not([data-highlighted])");
+            codeBlocks.forEach((codeBlock) => {
+              hljs.highlightElement(codeBlock);
+              codeBlock.setAttribute("data-highlighted", "true");
+              codeBlock.classList.add("pretty_scrollbar");
             });
-            container.innerHTML = container.innerHTML.replaceAll("＄", "$");
-          }
-        });
-      } else if (hasSeenVisible) {
-        // We've seen visible messages but this one is not visible
-        // Since we're going from last to first, we can break
-        break;
-      }
-    }
 
-    observer.observe(targetElement, config);
+            // Only render math in visible elements
+            const mathContainers = messageBody.querySelectorAll("p, span, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption, caption, dd, dt");
+            mathContainers.forEach(container => {
+              if (isElementVisibleOnScreen(container)) {
+                const replacedIndices = [];
+                container.innerHTML = maskNonLaTeXDollars(container.innerHTML, replacedIndices);
+                renderMathInElement(container, {
+                  delimiters: [
+                    { left: "$$", right: "$$", display: true },
+                    { left: "$", right: "$", display: false },
+                    { left: "\\(", right: "\\)", display: false },
+                    { left: "\\[", right: "\\]", display: true },
+                  ],
+                });
+                container.innerHTML = container.innerHTML.replaceAll("＄", "$");
+              }
+            });
+          } else if (hasSeenVisible) {
+            // We've seen visible messages but this one is not visible
+            // Since we're going from last to first, we can break
+            break;
+          }
+        }
+    } finally {
+      observer.observe(targetElement, config);
+    }
   }
 }
 

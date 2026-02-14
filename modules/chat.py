@@ -112,7 +112,9 @@ def generate_chat_prompt(user_input, state, **kwargs):
         add_generation_prompt=False,
         enable_thinking=state['enable_thinking'],
         reasoning_effort=state['reasoning_effort'],
-        thinking_budget=-1 if state.get('enable_thinking', True) else 0
+        thinking_budget=-1 if state.get('enable_thinking', True) else 0,
+        bos_token=shared.bos_token,
+        eos_token=shared.eos_token,
     )
 
     chat_renderer = partial(
@@ -475,7 +477,8 @@ def get_stopping_strings(state):
 
     if state['mode'] in ['instruct', 'chat-instruct']:
         template = jinja_env.from_string(state['instruction_template_str'])
-        renderer = partial(template.render, add_generation_prompt=False)
+        renderer = partial(template.render, add_generation_prompt=False, bos_token=shared.bos_token,
+                           eos_token=shared.eos_token)
         renderers.append(renderer)
 
     if state['mode'] in ['chat']:
@@ -875,7 +878,8 @@ def chatbot_wrapper(text, state, regenerate=False, _continue=False, loading_mess
 
         # Extract the reply
         if state['mode'] in ['chat', 'chat-instruct']:
-            reply = reply.lstrip()
+            if not _continue:
+                reply = reply.lstrip()
             if reply.startswith(state['name2'] + ':'):
                 reply = reply[len(state['name2'] + ':'):]
             elif reply.startswith(state['name1'] + ':'):
@@ -1217,7 +1221,7 @@ def find_all_histories_with_first_prompts(state):
         if re.match(r'^[0-9]{8}-[0-9]{2}-[0-9]{2}-[0-9]{2}$', filename):
             first_prompt = ""
             if data and 'visible' in data and len(data['visible']) > 0:
-                if data['internal'][0][0] == '<|BEGIN-VISIBLE-CHAT|>':
+                if len(data['internal']) > 0 and data['internal'][0][0] == '<|BEGIN-VISIBLE-CHAT|>':
                     if len(data['visible']) > 1:
                         first_prompt = html.unescape(data['visible'][1][0])
                     elif i == 0:
@@ -1821,6 +1825,10 @@ def handle_branch_chat_click(state):
         history = state['history']
         history['visible'] = history['visible'][:branch_from_index + 1]
         history['internal'] = history['internal'][:branch_from_index + 1]
+        # Prune the metadata dictionary to remove entries beyond the branch point
+        if 'metadata' in history:
+            history['metadata'] = {k: v for k, v in history['metadata'].items() if
+                                   int(k.split('_')[-1]) <= branch_from_index}
     new_unique_id = datetime.now().strftime('%Y%m%d-%H-%M-%S')
     save_history(history, new_unique_id, state['character_menu'], state['mode'])
 
