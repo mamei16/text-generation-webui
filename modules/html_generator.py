@@ -312,7 +312,7 @@ def process_markdown_content(string):
 
         if stripped_line.startswith('```'):
             is_code = not is_code
-        elif stripped_line.startswith('$$') and not stripped_line.endswith('$$'):
+        elif stripped_line.startswith('$$') and (line == "$$" or not stripped_line.endswith('$$')):
             is_latex = not is_latex
         elif stripped_line.endswith('$$'):
             is_latex = False
