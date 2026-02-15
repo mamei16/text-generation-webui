@@ -243,75 +243,6 @@ function isElementVisibleOnScreen(element) {
     rect.bottom > 0
   );
 }
-// Adapted from:
-// https://github.com/ggml-org/llama.cpp/blob/01d8eaa28d57bfc6d06e30072085ed0ef12e06c5/tools/server/webui/src/lib/utils/latex-protection.ts#L21
-function maskNonLaTeXDollars(content, replacedIndices) {
-	if (!content.includes('$')) {
-		return content;
-	}
-	return content
-		.split('\n')
-		.map((line) => {
-			if (line.indexOf('$') == -1) {
-				return line;
-			}
-
-			let processedLine = '';
-			let currentPosition = 0;
-
-			while (currentPosition < line.length) {
-				const openDollarIndex = line.indexOf('$', currentPosition);
-
-				if (openDollarIndex == -1) {
-					processedLine += line.slice(currentPosition);
-					break;
-				}
-
-				// Is there a next $-sign?
-				const closeDollarIndex = line.indexOf('$', openDollarIndex + 1);
-
-				if (closeDollarIndex == -1) {
-					processedLine += line.slice(currentPosition);
-					break;
-				}
-
-				const charBeforeOpen = openDollarIndex > 0 ? line[openDollarIndex - 1] : '';
-				const charAfterOpen = line[openDollarIndex + 1];
-				const charBeforeClose =
-					openDollarIndex + 1 < closeDollarIndex ? line[closeDollarIndex - 1] : '';
-				const charAfterClose = closeDollarIndex + 1 < line.length ? line[closeDollarIndex + 1] : '';
-
-				let shouldSkipAsNonLatex = false;
-
-				if (/[A-Za-z0-9_$-]/.test(charBeforeOpen)) {
-					// Character, digit, $, _ or - before first '$', no TeX.
-					shouldSkipAsNonLatex = true;
-				}
-
-				if (
-					/[0-9]/.test(charAfterOpen) &&
-					(/[A-Za-z0-9_$-]/.test(charAfterClose) || ' ' == charBeforeClose)
-				) {
-					// First $ seems to belong to an amount.
-					shouldSkipAsNonLatex = true;
-				}
-
-				if (shouldSkipAsNonLatex) {
-					processedLine += line.slice(currentPosition, openDollarIndex);
-                    replacedIndices.push(openDollarIndex);
-                    processedLine += "＄";
-					currentPosition = openDollarIndex + 1;
-
-					continue;
-				}
-                processedLine += line.slice(currentPosition, closeDollarIndex + 1);
-                currentPosition = closeDollarIndex + 1;
-			}
-
-			return processedLine;
-		})
-		.join('\n');
-}
 
 function doSyntaxHighlighting() {
   const messageBodies = document.getElementById("chat").querySelectorAll(".message-body");
@@ -339,9 +270,10 @@ function doSyntaxHighlighting() {
             // Only render math in visible elements
             const mathContainers = messageBody.querySelectorAll("p, span, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption, caption, dd, dt");
             mathContainers.forEach(container => {
-              if (isElementVisibleOnScreen(container)) {
-                const replacedIndices = [];
-                container.innerHTML = maskNonLaTeXDollars(container.innerHTML, replacedIndices);
+              if (container.innerHTML.length !== container.lastLength || container.innerHTML !== container.lastInnerHTML) {
+                container.processed = false;
+              }
+              if (isElementVisibleOnScreen(container) && (!container.processed)) {
                 renderMathInElement(container, {
                   delimiters: [
                     { left: "$$", right: "$$", display: true },
@@ -350,7 +282,9 @@ function doSyntaxHighlighting() {
                     { left: "\\[", right: "\\]", display: true },
                   ],
                 });
-                container.innerHTML = container.innerHTML.replaceAll("＄", "$");
+                container.lastInnerHTML = container.innerHTML;
+                container.lastLength = container.innerHTML.length;
+                container.processed = true;
               }
             });
           } else if (hasSeenVisible) {
