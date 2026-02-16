@@ -229,24 +229,27 @@ function removeLastClick() {
   document.getElementById("Remove-last").click();
 }
 
-var renderTimeout = null;
 function throttle(fn) {
-    let isThr = false;
+    let rafId = null;
+    let pendingData = null;
 
     return function (...args) {
         const data = JSON.parse(args[0].data);
-        if (!isThr || data.forceRender) {
-            isThr = true;
-            if (data.forceRender) {
-                clearTimeout(renderTimeout);
-                fn.apply(this, [data]);
-                isThr = false;
-                return;
+
+        if (data.forceRender) {
+            if (rafId) cancelAnimationFrame(rafId);
+            fn.call(this, data);
+            rafId = null; // Clear since we executed
+            pendingData = null;
+        } else {
+            pendingData = data;
+            if (!rafId) {
+                rafId = requestAnimationFrame(() => {
+                    fn.call(this, pendingData);
+                    rafId = null;
+                    pendingData = null;
+                });
             }
-            renderTimeout = setTimeout(() => {
-                                fn.apply(this, [data]);
-                                isThr = false;
-                            }, 0);
         }
     };
 }
