@@ -240,6 +240,18 @@ function doSyntaxHighlighting() {
             mathContainers.forEach(container => {
               intersectObserver.observe(container);
 
+              if (container.className === "thinking-title") {
+                container.parentElement.parentElement.children[1].addEventListener("scroll", function() {
+                  // Clear previous timeout and set new one
+                  clearTimeout(scrollTimeout);
+                  scrollTimeout = setTimeout(() => {
+                    targetElement.classList.remove("scrolling");
+                    doSyntaxHighlighting(); // Only run after scrolling stops
+                  }, 150);
+
+                });
+              }
+
               if (container.innerHTML.length !== container.lastLength || container.innerHTML !== container.lastInnerHTML) {
                 container.processed = false;
               }
