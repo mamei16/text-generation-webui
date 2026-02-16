@@ -316,7 +316,7 @@ def process_markdown_content(string):
             is_latex = not is_latex
         elif stripped_line.endswith('$$'):
             is_latex = False
-        elif stripped_line.startswith('\\\\['):
+        elif stripped_line.startswith('\\\\[') and not stripped_line.endswith('\\\\]'):
             is_latex = True
         elif stripped_line.startswith('\\\\]'):
             is_latex = False
