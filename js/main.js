@@ -147,38 +147,16 @@ window.isScrolled = false;
 let scrollTimeout;
 
 targetElement.addEventListener("scroll", function() {
-  let diff = targetElement.scrollHeight - targetElement.clientHeight;
-  let isAtBottomNow = Math.abs(targetElement.scrollTop - diff) <= 10 || diff == 0;
-
-  // Add scrolling class to disable hover effects
-  if (window.isScrolled || !isAtBottomNow) {
-    targetElement.classList.add("scrolling");
-  }
-
-  if(isAtBottomNow) {
-    window.isScrolled = false;
-  } else {
-    window.isScrolled = true;
-  }
-
   // Clear previous timeout and set new one
   clearTimeout(scrollTimeout);
   scrollTimeout = setTimeout(() => {
     targetElement.classList.remove("scrolling");
     doSyntaxHighlighting(); // Only run after scrolling stops
   }, 150);
-
 });
 
 // Create a MutationObserver instance
 const observer = new MutationObserver(function(mutations) {
-  // Check if this is just the scrolling class being toggled
-  const isScrollingClassOnly = mutations.every(mutation =>
-    mutation.type === "attributes" &&
-    mutation.attributeName === "class" &&
-    mutation.target === targetElement
-  );
-
   if (targetElement.classList.contains("_generating")) {
     typing.parentNode.classList.add("visible-dots");
     document.getElementById("stop").style.display = "flex";
@@ -190,33 +168,6 @@ const observer = new MutationObserver(function(mutations) {
   }
 
   doSyntaxHighlighting();
-
-  if (!window.isScrolled && !isScrollingClassOnly) {
-    const maxScroll = targetElement.scrollHeight - targetElement.clientHeight;
-    if (maxScroll > 0 && targetElement.scrollTop < maxScroll - 1) {
-      targetElement.scrollTop = maxScroll;
-    }
-  }
-
-  const chatElement = document.getElementById("chat");
-  if (chatElement && chatElement.getAttribute("data-mode") === "instruct") {
-    const messagesContainer = chatElement.querySelector(".messages");
-    const lastChild = messagesContainer?.lastElementChild;
-    const prevSibling = lastChild?.previousElementSibling;
-    if (lastChild && prevSibling) {
-      // Add padding to the messages container to create room for the last message.
-      // The purpose of this is to avoid constant scrolling during streaming in
-      // instruct mode.
-      let bufferHeight = Math.max(0, Math.max(window.innerHeight - 128 - 84, window.innerHeight - prevSibling.offsetHeight - 84) - lastChild.offsetHeight);
-
-      // Subtract header height when screen width is <= 924px
-      if (window.innerWidth <= 924) {
-        bufferHeight = Math.max(0, bufferHeight - 32);
-      }
-
-      messagesContainer.style.paddingBottom = `${bufferHeight}px`;
-    }
-  }
 });
 
 // Configure the observer to watch for changes in the subtree and attributes
@@ -224,8 +175,7 @@ const config = {
   childList: true,
   subtree: true,
   characterData: true,
-  attributeOldValue: true,
-  characterDataOldValue: true
+  attributeFilter: ['class']
 };
 
 // Start observing the target element
@@ -235,14 +185,30 @@ observer.observe(targetElement, config);
 // Handle syntax highlighting / LaTeX
 //------------------------------------------------
 function isElementVisibleOnScreen(element) {
-  const rect = element.getBoundingClientRect();
-  return (
-    rect.left < window.innerWidth &&
-    rect.right > 0 &&
-    rect.top < window.innerHeight &&
-    rect.bottom > 0
-  );
+  if (element.isVisibleOnScreen === undefined) {
+    const rect = element.getBoundingClientRect();
+    return (
+      rect.left < window.innerWidth &&
+      rect.right > 0 &&
+      rect.top < window.innerHeight &&
+      rect.bottom > 0
+    );
+  } else {
+    return element.isVisibleOnScreen;
+  }
 }
+
+const intersectObserver = new IntersectionObserver((entries) => {
+  for (const entry of entries) {
+    const rect = entry.boundingClientRect;
+    entry.target.isVisibleOnScreen = (
+        rect.left < window.innerWidth &&
+        rect.right > 0 &&
+        rect.top < window.innerHeight &&
+        rect.bottom > 0
+    );
+  }
+});
 
 function doSyntaxHighlighting() {
   const messageBodies = document.getElementById("chat").querySelectorAll(".message-body");
@@ -255,6 +221,8 @@ function doSyntaxHighlighting() {
         // Go from last message to first
         for (let i = messageBodies.length - 1; i >= 0; i--) {
           const messageBody = messageBodies[i];
+          
+          intersectObserver.observe(messageBody);
 
           if (isElementVisibleOnScreen(messageBody)) {
             hasSeenVisible = true;
@@ -270,6 +238,8 @@ function doSyntaxHighlighting() {
             // Only render math in visible elements
             const mathContainers = messageBody.querySelectorAll("p, span, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption, caption, dd, dt");
             mathContainers.forEach(container => {
+              intersectObserver.observe(container);
+
               if (container.innerHTML.length !== container.lastLength || container.innerHTML !== container.lastInnerHTML) {
                 container.processed = false;
               }
@@ -1068,44 +1038,3 @@ new MutationObserver(() => addMiniDeletes()).observe(
   {childList: true, subtree: true}
 );
 addMiniDeletes();
-
-//------------------------------------------------
-// Fix autoscroll after fonts load
-//------------------------------------------------
-document.fonts.addEventListener("loadingdone", (event) => {
-  setTimeout(() => {
-    if (!window.isScrolled) {
-      const maxScroll = targetElement.scrollHeight - targetElement.clientHeight;
-      if (targetElement.scrollTop < maxScroll - 5) {
-        targetElement.scrollTop = maxScroll;
-      }
-    }
-  }, 50);
-});
-
-(function() {
-  const chatParent = document.querySelector(".chat-parent");
-  const chatInputRow = document.querySelector("#chat-input-row");
-  const originalMarginBottom = 75;
-  let originalHeight = chatInputRow.offsetHeight;
-
-  function updateMargin() {
-    const currentHeight = chatInputRow.offsetHeight;
-    const heightDifference = currentHeight - originalHeight;
-    chatParent.style.marginBottom = `${originalMarginBottom + heightDifference}px`;
-  }
-
-  // Watch for changes that might affect height
-  const observer = new MutationObserver(updateMargin);
-  observer.observe(chatInputRow, {
-    childList: true,
-    subtree: true,
-    attributes: true
-  });
-
-  // Also listen for window resize
-  window.addEventListener("resize", updateMargin);
-
-  // Initial call to set the margin based on current state
-  updateMargin();
-})();

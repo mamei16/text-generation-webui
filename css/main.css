@@ -325,6 +325,12 @@ audio {
 /* ----------------------------------------------
   Chat tab
 ---------------------------------------------- */
+
+#scrollAnchor {
+  overflow-anchor: auto;
+  height: 1px;
+}
+
 .h-\[40dvh\], .wrap.svelte-byatnx.svelte-byatnx.svelte-byatnx {
     height: 66.67dvh
 }
@@ -433,6 +439,11 @@ div.svelte-362y77>*, div.svelte-362y77>.form>* {
     display: flex;
     flex-direction: column;
     min-height: calc(100vh - 102px);
+    padding-bottom: 50px;
+}
+
+.chat > .messages * {
+    overflow-anchor: none;
 }
 
 .chat > .messages > :first-child {
@@ -1664,9 +1675,6 @@ button:focus {
 
     /* Ensure GPU acceleration */
     transform: translateZ(0);
-
-    /* Prevent layout shifts */
-    overflow-anchor: none;
 }
 
 #chat-input span {

@@ -267,7 +267,7 @@ function handleMorphdomUpdate(data) {
   var target_element, target_html;
   if (data.last_message_only) {
     const childNodes = document.getElementsByClassName("messages")[0].childNodes;
-    target_element = childNodes[childNodes.length - 1];
+    target_element = childNodes[childNodes.length - 2];
     target_html = data.html;
   } else {
     target_element = document.getElementById("chat").parentNode;

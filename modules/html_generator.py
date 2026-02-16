@@ -618,7 +618,7 @@ def generate_instruct_html(history, last_message_only=False):
         output += create_message("assistant", converted_visible[1], row_internal[1])
 
     if not last_message_only:
-        output += "</div></div>"
+        output += '<div id="scrollAnchor"></div></div></div>'
 
     return output
 
