@@ -247,7 +247,7 @@ function doSyntaxHighlighting() {
                   scrollTimeout = setTimeout(() => {
                     targetElement.classList.remove("scrolling");
                     doSyntaxHighlighting(); // Only run after scrolling stops
-                  }, 150);
+                  }, 40);
 
                 });
               }
