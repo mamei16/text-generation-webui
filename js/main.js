@@ -153,6 +153,15 @@ targetElement.addEventListener("scroll", function() {
   }, 40);
 });
 
+let clickTimeout;
+document.querySelector("#past-chats").addEventListener("click", function(event) {
+  clearTimeout(clickTimeout);
+  // Ensure that chat is syntax highlighted when user clicks many chats is quick succession
+  clickTimeout = setTimeout(() => {
+    doSyntaxHighlighting();
+  }, 200);
+});
+
 // Create a MutationObserver instance
 const observer = new MutationObserver(function(mutations) {
   if (targetElement.classList.contains("_generating")) {
