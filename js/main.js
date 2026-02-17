@@ -152,7 +152,7 @@ targetElement.addEventListener("scroll", function() {
   scrollTimeout = setTimeout(() => {
     targetElement.classList.remove("scrolling");
     doSyntaxHighlighting(); // Only run after scrolling stops
-  }, 150);
+  }, 40);
 });
 
 // Create a MutationObserver instance
