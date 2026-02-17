@@ -143,14 +143,12 @@ typingSibling.insertBefore(typing, typingSibling.childNodes[2]);
 const targetElement = document.getElementById("chat").parentNode.parentNode.parentNode;
 targetElement.classList.add("pretty_scrollbar");
 targetElement.classList.add("chat-parent");
-window.isScrolled = false;
 let scrollTimeout;
 
 targetElement.addEventListener("scroll", function() {
   // Clear previous timeout and set new one
   clearTimeout(scrollTimeout);
   scrollTimeout = setTimeout(() => {
-    targetElement.classList.remove("scrolling");
     doSyntaxHighlighting(); // Only run after scrolling stops
   }, 40);
 });
@@ -245,7 +243,6 @@ function doSyntaxHighlighting() {
                   // Clear previous timeout and set new one
                   clearTimeout(scrollTimeout);
                   scrollTimeout = setTimeout(() => {
-                    targetElement.classList.remove("scrolling");
                     doSyntaxHighlighting(); // Only run after scrolling stops
                   }, 40);
 
