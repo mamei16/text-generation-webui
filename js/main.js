@@ -261,8 +261,8 @@ function doSyntaxHighlighting() {
 
                 });
               }
-
-              if (container.innerHTML.length !== container.lastLength || container.innerHTML !== container.lastInnerHTML) {
+              const innerHTML = container.innerHTML;
+              if (innerHTML.length !== container.lastLength || innerHTML !== container.lastInnerHTML) {
                 container.processed = false;
               }
               if (isElementVisibleOnScreen(container) && (!container.processed)) {
@@ -274,8 +274,8 @@ function doSyntaxHighlighting() {
                     { left: "\\[", right: "\\]", display: true },
                   ],
                 });
-                container.lastInnerHTML = container.innerHTML;
-                container.lastLength = container.innerHTML.length;
+                container.lastInnerHTML = innerHTML;
+                container.lastLength = innerHTML.length;
                 container.processed = true;
               }
             });
