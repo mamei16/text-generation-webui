@@ -303,6 +303,19 @@ function handleMorphdomUpdate(data) {
     }
   });
 
+  // Store scroll positions for code blocks
+  const codeScrollPositions = [];
+  codeBlockIdx = 0;
+  queryScope.querySelectorAll("code").forEach(block => {
+    block.idx = codeBlockIdx;
+    const isAtBottom = Math.abs((block.scrollHeight - block.scrollTop) - block.clientHeight) < 5;
+    codeScrollPositions.push({
+      position: block.scrollTop,
+      isAtBottom: isAtBottom
+    });
+    codeBlockIdx++;
+  });
+
   morphdom(
     target_element,
     target_html,
@@ -348,6 +361,19 @@ function handleMorphdomUpdate(data) {
                 content.scrollTop = content.scrollHeight;
               } else {
                 content.scrollTop = scrollPositions[blockId].position;
+              }
+            }, 0);
+          }
+        }
+        // Restore scroll positions for open code blocks
+        if (el.tagName && el.tagName === "CODE") {
+          const blockIdx = el.idx;
+          if (blockIdx !== undefined && codeScrollPositions[blockIdx]) {
+            setTimeout(() => {
+              if (codeScrollPositions[blockIdx].isAtBottom) {
+                el.scrollTop = el.scrollHeight;
+              } else {
+                el.scrollTop = codeScrollPositions[blockIdx].position;
               }
             }, 0);
           }
