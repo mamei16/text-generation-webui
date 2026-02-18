@@ -145,13 +145,25 @@ targetElement.classList.add("pretty_scrollbar");
 targetElement.classList.add("chat-parent");
 let scrollTimeout;
 
-targetElement.addEventListener("scroll", function() {
-  // Clear previous timeout and set new one
+function throttle(fn, delay) {
+  let lastCall = 0;
+  return function (...args) {
+    const now = Date.now();
+    if (now - lastCall >= delay) {
+      lastCall = now;
+      fn.apply(this, args);
+    }
+  };
+}
+
+targetElement.addEventListener("scroll", throttle(function() {
   clearTimeout(scrollTimeout);
-  scrollTimeout = setTimeout(() => {
-    doSyntaxHighlighting(); // Only run after scrolling stops
-  }, 40);
-});
+  scrollTimeout = setTimeout(() => {  // Ensure a final doSyntaxHighlighting() call once scrolling stops
+    doSyntaxHighlighting();
+  }, 150);
+
+  doSyntaxHighlighting();
+}, 100));
 
 let clickTimeout;
 document.querySelector("#past-chats").addEventListener("click", function(event) {
@@ -159,7 +171,7 @@ document.querySelector("#past-chats").addEventListener("click", function(event) 
   // Ensure that chat is syntax highlighted when user clicks many chats is quick succession
   clickTimeout = setTimeout(() => {
     doSyntaxHighlighting();
-  }, 200);
+  }, 350);
 });
 
 currentlyGenerating = false;
