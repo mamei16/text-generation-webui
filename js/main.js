@@ -162,16 +162,24 @@ document.querySelector("#past-chats").addEventListener("click", function(event) 
   }, 200);
 });
 
+currentlyGenerating = false;
+
 // Create a MutationObserver instance
 const observer = new MutationObserver(function(mutations) {
   if (targetElement.classList.contains("_generating")) {
     typing.parentNode.classList.add("visible-dots");
     document.getElementById("stop").style.display = "flex";
     document.getElementById("Generate").style.display = "none";
+    if (!currentlyGenerating) {
+        currentlyGenerating = true;
+        // Scroll to bottom after submitting a new message
+        setTimeout(() => {targetElement.scrollBy(0, 99999);}, 200);
+    }
   } else {
     typing.parentNode.classList.remove("visible-dots");
     document.getElementById("stop").style.display = "none";
     document.getElementById("Generate").style.display = "flex";
+    currentlyGenerating = false;
   }
 
   doSyntaxHighlighting();
