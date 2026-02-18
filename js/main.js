@@ -215,13 +215,7 @@ function isElementVisibleOnScreen(element) {
 
 const intersectObserver = new IntersectionObserver((entries) => {
   for (const entry of entries) {
-    const rect = entry.boundingClientRect;
-    entry.target.isVisibleOnScreen = (
-        rect.left < window.innerWidth &&
-        rect.right > 0 &&
-        rect.top < window.innerHeight &&
-        rect.bottom > 0
-    );
+    entry.target.isVisibleOnScreen = entry.isIntersecting;
   }
 });
 
