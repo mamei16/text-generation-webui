@@ -178,6 +178,11 @@ currentlyGenerating = false;
 
 // Create a MutationObserver instance
 const observer = new MutationObserver(function(mutations) {
+
+  for (var mutation of mutations) {
+    if (mutation.target.processed !== undefined) mutation.target.processed = false;
+  }
+
   if (targetElement.classList.contains("_generating")) {
     typing.parentNode.classList.add("visible-dots");
     document.getElementById("stop").style.display = "flex";
@@ -268,7 +273,7 @@ function doSyntaxHighlighting() {
                 });
               }
               const innerHTML = container.innerHTML;
-              if (innerHTML.length !== container.lastLength || innerHTML !== container.lastInnerHTML) {
+              if (container.processed && (innerHTML.length !== container.lastLength || innerHTML !== container.lastInnerHTML)) {
                 container.processed = false;
               }
               if (isElementVisibleOnScreen(container) && (!container.processed)) {
