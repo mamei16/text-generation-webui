@@ -12,6 +12,7 @@ from typing import Any, List
 
 import llama_cpp_binaries
 import requests
+from tqdm import tqdm
 
 from modules import shared
 from modules.image_utils import (
@@ -94,6 +95,7 @@ class LlamaServer:
             "grammar": state["grammar_string"],
             "seed": state["seed"],
             "ignore_eos": state["ban_eos_token"],
+            "return_progress": True
         }
 
         # DRY
@@ -199,6 +201,8 @@ class LlamaServer:
             pprint.PrettyPrinter(indent=4, sort_dicts=False).pprint(printable_payload)
             print()
 
+        start_time = time.monotonic()
+
         # Make the generation request
         response = self.session.post(url, json=payload, stream=True)
         try:
@@ -226,6 +230,17 @@ class LlamaServer:
 
                     # Parse the JSON data
                     data = json.loads(line)
+
+                    if "prompt_progress" in data:
+                        progress_dict = data["prompt_progress"]
+                        n_processed_tokens = progress_dict["processed"]
+                        n_total_tokens = progress_dict["total"]
+                        percent_processed = int((n_processed_tokens / n_total_tokens) * 100)
+                        rate = n_processed_tokens / (time.monotonic()-start_time)
+                        remaining = (n_total_tokens - n_processed_tokens) / rate if rate else 0
+                        remaining_str = tqdm.format_interval(remaining) if rate else '?'
+                        yield full_text + f'​*Processing... (__{percent_processed}%__ ETA: {remaining_str})*'
+                        continue
 
                     # Extract the token content
                     if data.get('content', ''):
