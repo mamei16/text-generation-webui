@@ -38,6 +38,8 @@ class LlamaServer:
         self.vocabulary_size = None
         self.bos_token = "<s>"
         self.last_prompt_token_count = 0
+        self.tokens_predicted = 0
+        self.tokens_evaluated = 0
 
         # Start the server
         self._start_server()
@@ -229,6 +231,9 @@ class LlamaServer:
                     if data.get('content', ''):
                         full_text += data['content']
                         yield full_text
+
+                    self.tokens_evaluated = data.get("tokens_evaluated", 0)
+                    self.tokens_predicted  = data.get("tokens_predicted", 0)
 
                     # Check if generation is complete
                     if data.get('stop', False):
