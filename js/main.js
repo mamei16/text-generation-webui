@@ -161,18 +161,8 @@ targetElement.addEventListener("scroll", throttle(function() {
   scrollTimeout = setTimeout(() => {  // Ensure a final doSyntaxHighlighting() call once scrolling stops
     doSyntaxHighlighting();
   }, 150);
-
   doSyntaxHighlighting();
 }, 100));
-
-let clickTimeout;
-document.querySelector("#past-chats").addEventListener("click", function(event) {
-  clearTimeout(clickTimeout);
-  // Ensure that chat is syntax highlighted when user clicks many chats is quick succession
-  clickTimeout = setTimeout(() => {
-    doSyntaxHighlighting();
-  }, 350);
-});
 
 currentlyGenerating = false;
 
@@ -181,6 +171,26 @@ const observer = new MutationObserver(function(mutations) {
 
   for (var mutation of mutations) {
     if (mutation.target.processed !== undefined) mutation.target.processed = false;
+
+    for (addedNode of mutation.addedNodes) {
+        if (addedNode.nodeType === 3) continue;  // Skip text nodes
+        addedNode.processed = false;
+        if (addedNode.matches("pre"))
+            syntaxHighlightCodeBlock(addedNode.firstChild);
+
+        else if (addedNode.matches("p, span, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption, caption, dd, dt"))
+            syntaxHighlightKatex(addedNode);
+
+        else if (addedNode.matches(".thinking-block")) {
+            addedNode.children[1].addEventListener("scroll", throttle(function() {
+              clearTimeout(scrollTimeout);
+              scrollTimeout = setTimeout(() => {  // Ensure a final doSyntaxHighlighting() call once scrolling stops
+                doSyntaxHighlighting();
+              }, 150);
+              doSyntaxHighlighting();
+            }, 100));
+        }
+    }
   }
 
   if (targetElement.classList.contains("_generating")) {
@@ -236,6 +246,33 @@ const intersectObserver = new IntersectionObserver((entries) => {
   }
 });
 
+
+function syntaxHighlightCodeBlock(block) {
+    hljs.highlightElement(block);
+    block.setAttribute("data-highlighted", "true");
+    block.classList.add("pretty_scrollbar");
+}
+
+function syntaxHighlightKatex(container) {
+    const innerHTML = container.innerHTML;
+    if (container.processed && (innerHTML.length !== container.lastLength || innerHTML !== container.lastInnerHTML)) {
+      container.processed = false;
+    }
+    if (isElementVisibleOnScreen(container) && (!container.processed)) {
+      renderMathInElement(container, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false },
+          { left: "\\(", right: "\\)", display: false },
+          { left: "\\[", right: "\\]", display: true },
+        ],
+      });
+      container.lastInnerHTML = innerHTML;
+      container.lastLength = innerHTML.length;
+      container.processed = true;
+    }
+}
+
 function doSyntaxHighlighting() {
   const messageBodies = document.getElementById("chat").querySelectorAll(".message-body");
 
@@ -256,9 +293,7 @@ function doSyntaxHighlighting() {
             // Handle both code and math in a single pass through each message
             const codeBlocks = messageBody.querySelectorAll("pre code:not([data-highlighted])");
             codeBlocks.forEach((codeBlock) => {
-              hljs.highlightElement(codeBlock);
-              codeBlock.setAttribute("data-highlighted", "true");
-              codeBlock.classList.add("pretty_scrollbar");
+              syntaxHighlightCodeBlock(codeBlock);
             });
 
             // Only render math in visible elements
@@ -267,32 +302,16 @@ function doSyntaxHighlighting() {
               intersectObserver.observe(container);
 
               if (container.className === "thinking-title") {
-                container.parentElement.parentElement.children[1].addEventListener("scroll", function() {
-                  // Clear previous timeout and set new one
+                container.parentElement.parentElement.children[1].addEventListener("scroll", throttle(function() {
                   clearTimeout(scrollTimeout);
-                  scrollTimeout = setTimeout(() => {
-                    doSyntaxHighlighting(); // Only run after scrolling stops
-                  }, 40);
+                  scrollTimeout = setTimeout(() => {  // Ensure a final doSyntaxHighlighting() call once scrolling stops
+                    doSyntaxHighlighting();
+                  }, 150);
+                  doSyntaxHighlighting();
+                }, 100));
+              }
 
-                });
-              }
-              const innerHTML = container.innerHTML;
-              if (container.processed && (innerHTML.length !== container.lastLength || innerHTML !== container.lastInnerHTML)) {
-                container.processed = false;
-              }
-              if (isElementVisibleOnScreen(container) && (!container.processed)) {
-                renderMathInElement(container, {
-                  delimiters: [
-                    { left: "$$", right: "$$", display: true },
-                    { left: "$", right: "$", display: false },
-                    { left: "\\(", right: "\\)", display: false },
-                    { left: "\\[", right: "\\]", display: true },
-                  ],
-                });
-                container.lastInnerHTML = innerHTML;
-                container.lastLength = innerHTML.length;
-                container.processed = true;
-              }
+              syntaxHighlightKatex(container);
             });
           } else if (hasSeenVisible) {
             // We've seen visible messages but this one is not visible
