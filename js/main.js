@@ -168,27 +168,28 @@ currentlyGenerating = false;
 
 // Create a MutationObserver instance
 const observer = new MutationObserver(function(mutations) {
+  if (!currentlyGenerating) {
+    for (var mutation of mutations) {
+        if (mutation.target.processed !== undefined) mutation.target.processed = false;
 
-  for (var mutation of mutations) {
-    if (mutation.target.processed !== undefined) mutation.target.processed = false;
+        for (addedNode of mutation.addedNodes) {
+            if (addedNode.nodeType === 3) continue;  // Skip text nodes
+            addedNode.processed = false;
+            if (addedNode.matches("pre"))
+                syntaxHighlightCodeBlock(addedNode.firstChild);
 
-    for (addedNode of mutation.addedNodes) {
-        if (addedNode.nodeType === 3) continue;  // Skip text nodes
-        addedNode.processed = false;
-        if (addedNode.matches("pre"))
-            syntaxHighlightCodeBlock(addedNode.firstChild);
+            else if (addedNode.matches("p, span, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption, caption, dd, dt"))
+                syntaxHighlightKatex(addedNode);
 
-        else if (addedNode.matches("p, span, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption, caption, dd, dt"))
-            syntaxHighlightKatex(addedNode);
-
-        else if (addedNode.matches(".thinking-block")) {
-            addedNode.children[1].addEventListener("scroll", throttle(function() {
-              clearTimeout(scrollTimeout);
-              scrollTimeout = setTimeout(() => {  // Ensure a final doSyntaxHighlighting() call once scrolling stops
-                doSyntaxHighlighting();
-              }, 150);
-              doSyntaxHighlighting();
-            }, 100));
+            else if (addedNode.matches(".thinking-block")) {
+                addedNode.children[1].addEventListener("scroll", throttle(function() {
+                  clearTimeout(scrollTimeout);
+                  scrollTimeout = setTimeout(() => {  // Ensure a final doSyntaxHighlighting() call once scrolling stops
+                    doSyntaxHighlighting();
+                  }, 150);
+                  doSyntaxHighlighting();
+                }, 100));
+            }
         }
     }
   }
