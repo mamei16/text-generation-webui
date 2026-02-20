@@ -267,8 +267,9 @@ function syntaxHighlightKatex(container) {
           { left: "\\[", right: "\\]", display: true },
         ],
       });
-      container.lastInnerHTML = innerHTML;
-      container.lastLength = innerHTML.length;
+      const newInnerHTML = container.innerHTML;
+      container.lastInnerHTML = newInnerHTML;
+      container.lastLength = newInnerHTML.length;
       container.processed = true;
     }
 }
