@@ -177,7 +177,7 @@ const observer = new MutationObserver(function(mutations) {
                 if (addedNode.matches("pre"))
                     syntaxHighlightCodeBlock(addedNode.firstChild);
 
-                else if (addedNode.matches("p, span, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption,
+                else if (addedNode.matches("p, span, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption,"
                                            + "caption, dd, dt"))
                     syntaxHighlightKatex(addedNode);
 
@@ -320,7 +320,7 @@ function doSyntaxHighlighting() {
                     });
 
                     // Only render math in visible elements
-                    const mathContainers = messageBody.querySelectorAll("p, span, li, td, th, h1, h2, h3, h4, h5, h6,
+                    const mathContainers = messageBody.querySelectorAll("p, span, li, td, th, h1, h2, h3, h4, h5, h6,"
                                                                         + "blockquote, figcaption, caption, dd, dt");
                     mathContainers.forEach(container => {
                         intersectObserver.observe(container);
