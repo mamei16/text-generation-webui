@@ -11,31 +11,31 @@ main_parent.parentNode.style = "gap: 0";
 main_parent.parentNode.parentNode.style = "padding: 0";
 
 document.querySelector(".header_bar").addEventListener("click", function(event) {
-  if (event.target.tagName !== "BUTTON") return;
+    if (event.target.tagName !== "BUTTON") return;
 
-  const buttonText = event.target.textContent.trim();
-  const extensionsVisible = ["Chat", "Default", "Notebook"].includes(buttonText);
-  const chatVisible = buttonText === "Chat";
-  const showControlsChecked = document.querySelector("#show-controls input").checked;
-  const extensions = document.querySelector("#extensions");
+    const buttonText = event.target.textContent.trim();
+    const extensionsVisible = ["Chat", "Default", "Notebook"].includes(buttonText);
+    const chatVisible = buttonText === "Chat";
+    const showControlsChecked = document.querySelector("#show-controls input").checked;
+    const extensions = document.querySelector("#extensions");
 
-  if (extensionsVisible) {
-    if (extensions) {
-      extensions.style.display = "flex";
+    if (extensionsVisible) {
+        if (extensions) {
+            extensions.style.display = "flex";
+        }
+
+        this.style.marginBottom = chatVisible ? "0px" : "19px";
+
+        if (chatVisible && !showControlsChecked) {
+            document.querySelectorAll("#extensions").forEach(element => {
+                element.style.display = "none";
+            });
+        }
+
+    } else {
+        this.style.marginBottom = "19px";
+        if (extensions) extensions.style.display = "none";
     }
-
-    this.style.marginBottom = chatVisible ? "0px" : "19px";
-
-    if (chatVisible && !showControlsChecked) {
-      document.querySelectorAll("#extensions").forEach(element => {
-        element.style.display = "none";
-      });
-    }
-
-  } else {
-    this.style.marginBottom = "19px";
-    if (extensions) extensions.style.display = "none";
-  }
 });
 
 //------------------------------------------------
@@ -44,88 +44,86 @@ document.querySelector(".header_bar").addEventListener("click", function(event) 
 
 // --- Helper functions --- //
 function isModifiedKeyboardEvent() {
-  return (event instanceof KeyboardEvent &&
-    event.shiftKey ||
-    event.ctrlKey ||
-    event.altKey ||
-    event.metaKey);
+    return (event instanceof KeyboardEvent &&
+        event.shiftKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.metaKey);
 }
 
 function isFocusedOnEditableTextbox() {
-  if (event.target.tagName === "INPUT" || event.target.tagName === "TEXTAREA") {
-    return !!event.target.value;
-  }
+    if (event.target.tagName === "INPUT" || event.target.tagName === "TEXTAREA") {
+        return !!event.target.value;
+    }
 }
 
 let previousTabId = "chat-tab-button";
 document.addEventListener("keydown", function(event) {
-  // Stop generation on Esc pressed
-  if (event.key === "Escape") {
-    // Find the element with id 'stop' and click it
-    var stopButton = document.getElementById("stop");
-    if (stopButton) {
-      stopButton.click();
-    }
-    return;
-  }
-
-  if (!document.querySelector("#chat-tab").checkVisibility() ) {
-    return;
-  }
-
-  // Show chat controls on Ctrl + S
-  if (event.ctrlKey && event.key == "s") {
-    event.preventDefault();
-
-    var showControlsElement = document.getElementById("show-controls");
-    if (showControlsElement && showControlsElement.childNodes.length >= 4) {
-      showControlsElement.childNodes[3].click();
-
-      var arr = document.getElementById("chat-input").childNodes[2].childNodes;
-      arr[arr.length - 1].focus();
-    }
-  }
-
-  // Regenerate on Ctrl + Enter
-  else if (event.ctrlKey && event.key === "Enter") {
-    event.preventDefault();
-    document.getElementById("Regenerate").click();
-  }
-
-  // Continue on Alt + Enter
-  else if (event.altKey && event.key === "Enter") {
-    event.preventDefault();
-    document.getElementById("Continue").click();
-  }
-
-  // Remove last on Ctrl + Shift + Backspace
-  else if (event.ctrlKey && event.shiftKey && event.key === "Backspace") {
-    event.preventDefault();
-    document.getElementById("Remove-last").click();
-  }
-
-  // Impersonate on Ctrl + Shift + M
-  else if (event.ctrlKey && event.shiftKey && event.key === "M") {
-    event.preventDefault();
-    document.getElementById("Impersonate").click();
-  }
-
-  // --- Simple version navigation --- //
-  if (!isFocusedOnEditableTextbox()) {
-    // Version navigation on Arrow keys (horizontal)
-    if (!isModifiedKeyboardEvent() && event.key === "ArrowLeft") {
-      event.preventDefault();
-      navigateLastAssistantMessage("left");
+    // Stop generation on Esc pressed
+    if (event.key === "Escape") {
+        // Find the element with id 'stop' and click it
+        var stopButton = document.getElementById("stop");
+        if (stopButton) {
+            stopButton.click();
+        }
+        return;
     }
 
-    else if (!isModifiedKeyboardEvent() && event.key === "ArrowRight") {
-      event.preventDefault();
-      if (!navigateLastAssistantMessage("right")) {
-        // If can't navigate right (last version), regenerate
+    if (!document.querySelector("#chat-tab").checkVisibility()) {
+        return;
+    }
+
+    // Show chat controls on Ctrl + S
+    if (event.ctrlKey && event.key == "s") {
+        event.preventDefault();
+
+        var showControlsElement = document.getElementById("show-controls");
+        if (showControlsElement && showControlsElement.childNodes.length >= 4) {
+            showControlsElement.childNodes[3].click();
+
+            var arr = document.getElementById("chat-input").childNodes[2].childNodes;
+            arr[arr.length - 1].focus();
+        }
+    }
+
+    // Regenerate on Ctrl + Enter
+    else if (event.ctrlKey && event.key === "Enter") {
+        event.preventDefault();
         document.getElementById("Regenerate").click();
-      }
     }
-  }
+
+    // Continue on Alt + Enter
+    else if (event.altKey && event.key === "Enter") {
+        event.preventDefault();
+        document.getElementById("Continue").click();
+    }
+
+    // Remove last on Ctrl + Shift + Backspace
+    else if (event.ctrlKey && event.shiftKey && event.key === "Backspace") {
+        event.preventDefault();
+        document.getElementById("Remove-last").click();
+    }
+
+    // Impersonate on Ctrl + Shift + M
+    else if (event.ctrlKey && event.shiftKey && event.key === "M") {
+        event.preventDefault();
+        document.getElementById("Impersonate").click();
+    }
+
+    // --- Simple version navigation --- //
+    if (!isFocusedOnEditableTextbox()) {
+        // Version navigation on Arrow keys (horizontal)
+        if (!isModifiedKeyboardEvent() && event.key === "ArrowLeft") {
+            event.preventDefault();
+            navigateLastAssistantMessage("left");
+        } else if (!isModifiedKeyboardEvent() && event.key === "ArrowRight") {
+            event.preventDefault();
+            if (!navigateLastAssistantMessage("right")) {
+                // If can't navigate right (last version), regenerate
+                document.getElementById("Regenerate").click();
+            }
+        }
+    }
 
 });
 
@@ -147,83 +145,86 @@ let scrollTimeout;
 let thinkScrollTimeout;
 
 function throttle(fn, delay) {
-  let lastCall = 0;
-  return function (...args) {
-    const now = Date.now();
-    if (now - lastCall >= delay) {
-      lastCall = now;
-      fn.apply(this, args);
-    }
-  };
+    let lastCall = 0;
+    return function(...args) {
+        const now = Date.now();
+        if (now - lastCall >= delay) {
+            lastCall = now;
+            fn.apply(this, args);
+        }
+    };
 }
 
 targetElement.addEventListener("scroll", throttle(function() {
-  clearTimeout(scrollTimeout);
-  scrollTimeout = setTimeout(() => {  // Ensure a final doSyntaxHighlighting() call once scrolling stops
+    clearTimeout(scrollTimeout);
+    scrollTimeout = setTimeout(() => { // Ensure a final doSyntaxHighlighting() call once scrolling stops
+        doSyntaxHighlighting();
+    }, 150);
     doSyntaxHighlighting();
-  }, 150);
-  doSyntaxHighlighting();
 }, 100));
 
 currentlyGenerating = false;
 
 // Create a MutationObserver instance
 const observer = new MutationObserver(function(mutations) {
-  if (!currentlyGenerating) {
-    for (var mutation of mutations) {
-        if (mutation.target.processed !== undefined) mutation.target.processed = false;
+    if (!currentlyGenerating) {
+        for (var mutation of mutations) {
+            if (mutation.target.processed !== undefined) mutation.target.processed = false;
 
-        for (addedNode of mutation.addedNodes) {
-            if (addedNode.nodeType === 3) continue;  // Skip text nodes
-            addedNode.processed = false;
-            if (addedNode.matches("pre"))
-                syntaxHighlightCodeBlock(addedNode.firstChild);
+            for (addedNode of mutation.addedNodes) {
+                if (addedNode.nodeType === 3) continue; // Skip text nodes
+                addedNode.processed = false;
+                if (addedNode.matches("pre"))
+                    syntaxHighlightCodeBlock(addedNode.firstChild);
 
-            else if (addedNode.matches("p, span, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption, caption, dd, dt"))
-                syntaxHighlightKatex(addedNode);
+                else if (addedNode.matches("p, span, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption,
+                                           + "caption, dd, dt"))
+                    syntaxHighlightKatex(addedNode);
 
-            else if (addedNode.matches(".thinking-block")) {
-                thinkingContent = addedNode.children[1];
-                if (!thinkingContent.hasScrollListener) {
-                    thinkingContent.addEventListener("scroll", throttle(function() {
-                      clearTimeout(scrollTimeout);
-                      scrollTimeout = setTimeout(() => {  // Ensure a final doSyntaxHighlighting() call once scrolling stops
-                        doSyntaxHighlighting();
-                      }, 150);
-                      doSyntaxHighlighting();
-                    }, 100));
-                    thinkingContent.hasScrollListener = true;
+                else if (addedNode.matches(".thinking-block")) {
+                    thinkingContent = addedNode.children[1];
+                    if (!thinkingContent.hasScrollListener) {
+                        thinkingContent.addEventListener("scroll", throttle(function() {
+                            clearTimeout(scrollTimeout);
+                            scrollTimeout = setTimeout(() => {   // Ensure a final doSyntaxHighlighting() call once
+                                doSyntaxHighlighting();          // scrolling stops
+                            }, 150);
+                            doSyntaxHighlighting();
+                        }, 100));
+                        thinkingContent.hasScrollListener = true;
+                    }
                 }
             }
         }
     }
-  }
 
-  if (targetElement.classList.contains("_generating")) {
-    typing.parentNode.classList.add("visible-dots");
-    document.getElementById("stop").style.display = "flex";
-    document.getElementById("Generate").style.display = "none";
-    if (!currentlyGenerating) {
-        currentlyGenerating = true;
-        // Scroll to bottom after submitting a new message
-        setTimeout(() => {targetElement.scrollBy(0, 99999);}, 200);
+    if (targetElement.classList.contains("_generating")) {
+        typing.parentNode.classList.add("visible-dots");
+        document.getElementById("stop").style.display = "flex";
+        document.getElementById("Generate").style.display = "none";
+        if (!currentlyGenerating) {
+            currentlyGenerating = true;
+            // Scroll to bottom after submitting a new message
+            setTimeout(() => {
+                targetElement.scrollBy(0, 99999);
+            }, 200);
+        }
+    } else {
+        typing.parentNode.classList.remove("visible-dots");
+        document.getElementById("stop").style.display = "none";
+        document.getElementById("Generate").style.display = "flex";
+        currentlyGenerating = false;
     }
-  } else {
-    typing.parentNode.classList.remove("visible-dots");
-    document.getElementById("stop").style.display = "none";
-    document.getElementById("Generate").style.display = "flex";
-    currentlyGenerating = false;
-  }
 
-  doSyntaxHighlighting();
+    doSyntaxHighlighting();
 });
 
 // Configure the observer to watch for changes in the subtree and attributes
 const config = {
-  childList: true,
-  subtree: true,
-  characterData: true,
-  attributeFilter: ['class']
+    childList: true,
+    subtree: true,
+    characterData: true,
+    attributeFilter: ['class']
 };
 
 // Start observing the target element
@@ -233,23 +234,23 @@ observer.observe(targetElement, config);
 // Handle syntax highlighting / LaTeX
 //------------------------------------------------
 function isElementVisibleOnScreen(element) {
-  if (element.isVisibleOnScreen === undefined) {
-    const rect = element.getBoundingClientRect();
-    return (
-      rect.left < window.innerWidth &&
-      rect.right > 0 &&
-      rect.top < window.innerHeight &&
-      rect.bottom > 0
-    );
-  } else {
-    return element.isVisibleOnScreen;
-  }
+    if (element.isVisibleOnScreen === undefined) {
+        const rect = element.getBoundingClientRect();
+        return (
+            rect.left < window.innerWidth &&
+            rect.right > 0 &&
+            rect.top < window.innerHeight &&
+            rect.bottom > 0
+        );
+    } else {
+        return element.isVisibleOnScreen;
+    }
 }
 
 const intersectObserver = new IntersectionObserver((entries) => {
-  for (const entry of entries) {
-    entry.target.isVisibleOnScreen = entry.isIntersecting;
-  }
+    for (const entry of entries) {
+        entry.target.isVisibleOnScreen = entry.isIntersecting;
+    }
 });
 
 
@@ -262,106 +263,122 @@ function syntaxHighlightCodeBlock(block) {
 function syntaxHighlightKatex(container) {
     const innerHTML = container.innerHTML;
     if (container.processed && (innerHTML.length !== container.lastLength || innerHTML !== container.lastInnerHTML)) {
-      container.processed = false;
+        container.processed = false;
     }
     if (isElementVisibleOnScreen(container) && (!container.processed)) {
-      renderMathInElement(container, {
-        delimiters: [
-          { left: "$$", right: "$$", display: true },
-          { left: "$", right: "$", display: false },
-          { left: "\\(", right: "\\)", display: false },
-          { left: "\\[", right: "\\]", display: true },
-        ],
-      });
-      const newInnerHTML = container.innerHTML;
-      container.lastInnerHTML = newInnerHTML;
-      container.lastLength = newInnerHTML.length;
-      container.processed = true;
+        renderMathInElement(container, {
+            delimiters: [{
+                    left: "$$",
+                    right: "$$",
+                    display: true
+                },
+                {
+                    left: "$",
+                    right: "$",
+                    display: false
+                },
+                {
+                    left: "\\(",
+                    right: "\\)",
+                    display: false
+                },
+                {
+                    left: "\\[",
+                    right: "\\]",
+                    display: true
+                },
+            ],
+        });
+        const newInnerHTML = container.innerHTML;
+        container.lastInnerHTML = newInnerHTML;
+        container.lastLength = newInnerHTML.length;
+        container.processed = true;
     }
 }
 
 function doSyntaxHighlighting() {
-  const messageBodies = document.getElementById("chat").querySelectorAll(".message-body");
+    const messageBodies = document.getElementById("chat").querySelectorAll(".message-body");
 
-  if (messageBodies.length > 0) {
-    observer.disconnect();
-    try {
-        hasSeenVisible = false;
+    if (messageBodies.length > 0) {
+        observer.disconnect();
+        try {
+            hasSeenVisible = false;
 
-        // Go from last message to first
-        for (let i = messageBodies.length - 1; i >= 0; i--) {
-          const messageBody = messageBodies[i];
+            // Go from last message to first
+            for (let i = messageBodies.length - 1; i >= 0; i--) {
+                const messageBody = messageBodies[i];
 
-          intersectObserver.observe(messageBody);
+                intersectObserver.observe(messageBody);
 
-          if (isElementVisibleOnScreen(messageBody)) {
-            hasSeenVisible = true;
+                if (isElementVisibleOnScreen(messageBody)) {
+                    hasSeenVisible = true;
 
-            // Handle both code and math in a single pass through each message
-            const codeBlocks = messageBody.querySelectorAll("pre code:not([data-highlighted])");
-            codeBlocks.forEach((codeBlock) => {
-              syntaxHighlightCodeBlock(codeBlock);
-            });
+                    // Handle both code and math in a single pass through each message
+                    const codeBlocks = messageBody.querySelectorAll("pre code:not([data-highlighted])");
+                    codeBlocks.forEach((codeBlock) => {
+                        syntaxHighlightCodeBlock(codeBlock);
+                    });
 
-            // Only render math in visible elements
-            const mathContainers = messageBody.querySelectorAll("p, span, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption, caption, dd, dt");
-            mathContainers.forEach(container => {
-              intersectObserver.observe(container);
+                    // Only render math in visible elements
+                    const mathContainers = messageBody.querySelectorAll("p, span, li, td, th, h1, h2, h3, h4, h5, h6,
+                                                                        + "blockquote, figcaption, caption, dd, dt");
+                    mathContainers.forEach(container => {
+                        intersectObserver.observe(container);
 
-              let thinkScrollTimeout;
-              if (container.className === "thinking-title") {
-                thinkingContent = container.parentElement.parentElement.children[1];
-                if (!thinkingContent.hasScrollListener) {
-                    thinkingContent.addEventListener("scroll", throttle(function() {
-                      clearTimeout(thinkScrollTimeout);
-                      thinkScrollTimeout = setTimeout(() => {  // Ensure a final doSyntaxHighlighting() call once scrolling stops
-                        doSyntaxHighlighting();
-                      }, 150);
-                      console.log("Scrolling thinking block!");
-                      doSyntaxHighlighting();
-                    }, 100));
-                    thinkingContent.hasScrollListener = true;
+                        let thinkScrollTimeout;
+                        if (container.className === "thinking-title") {
+                            thinkingContent = container.parentElement.parentElement.children[1];
+                            if (!thinkingContent.hasScrollListener) {
+                                thinkingContent.addEventListener("scroll", throttle(function() {
+                                    clearTimeout(thinkScrollTimeout);
+                                    thinkScrollTimeout = setTimeout(() => { // Ensure a final doSyntaxHighlighting()
+                                        doSyntaxHighlighting();             // call once scrolling stops
+                                    }, 150);
+                                    console.log("Scrolling thinking block!");
+                                    doSyntaxHighlighting();
+                                }, 100));
+                                thinkingContent.hasScrollListener = true;
+                            }
+                        }
+
+                        syntaxHighlightKatex(container);
+                    });
+                } else if (hasSeenVisible) {
+                    // We've seen visible messages but this one is not visible
+                    // Since we're going from last to first, we can break
+                    break;
                 }
-              }
-
-              syntaxHighlightKatex(container);
-            });
-          } else if (hasSeenVisible) {
-            // We've seen visible messages but this one is not visible
-            // Since we're going from last to first, we can break
-            break;
-          }
+            }
+        } finally {
+            observer.observe(targetElement, config);
         }
-    } finally {
-      observer.observe(targetElement, config);
     }
-  }
 }
 
 //------------------------------------------------
 // Add some scrollbars
 //------------------------------------------------
 const textareaElements = document.querySelectorAll(".add_scrollbar textarea");
-for(i = 0; i < textareaElements.length; i++) {
-  textareaElements[i].classList.remove("scroll-hide");
-  textareaElements[i].classList.add("pretty_scrollbar");
-  textareaElements[i].style.resize = "none";
+for (i = 0; i < textareaElements.length; i++) {
+    textareaElements[i].classList.remove("scroll-hide");
+    textareaElements[i].classList.add("pretty_scrollbar");
+    textareaElements[i].style.resize = "none";
 }
 
 //------------------------------------------------
 // Remove some backgrounds
 //------------------------------------------------
 const noBackgroundelements = document.querySelectorAll(".no-background");
-for(i = 0; i < noBackgroundelements.length; i++) {
-  noBackgroundelements[i].parentNode.style.border = "none";
-  noBackgroundelements[i].parentNode.parentNode.parentNode.style.alignItems = "center";
+for (i = 0; i < noBackgroundelements.length; i++) {
+    noBackgroundelements[i].parentNode.style.border = "none";
+    noBackgroundelements[i].parentNode.parentNode.parentNode.style.alignItems = "center";
 }
 
 const slimDropdownElements = document.querySelectorAll(".slim-dropdown");
 for (i = 0; i < slimDropdownElements.length; i++) {
-  const parentNode = slimDropdownElements[i].parentNode;
-  parentNode.style.background = "transparent";
-  parentNode.style.border = "0";
+    const parentNode = slimDropdownElements[i].parentNode;
+    parentNode.style.background = "transparent";
+    parentNode.style.border = "0";
 }
 
 //------------------------------------------------
@@ -375,106 +392,105 @@ var menu = document.getElementById("hover-menu");
 var istouchscreen = (navigator.maxTouchPoints > 0) || "ontouchstart" in document.documentElement;
 
 function showMenu() {
-  menu.style.display = "flex"; // Show the menu
+    menu.style.display = "flex"; // Show the menu
 }
 
 function hideMenu() {
-  menu.style.display = "none"; // Hide the menu
-  if (!istouchscreen) {
-    document.querySelector("#chat-input textarea").focus(); // Focus on the chat input
-  }
+    menu.style.display = "none"; // Hide the menu
+    if (!istouchscreen) {
+        document.querySelector("#chat-input textarea").focus(); // Focus on the chat input
+    }
 }
 
 if (buttonsInChat.length > 0) {
-  for (let i = buttonsInChat.length - 1; i >= 0; i--) {
-    const thisButton = buttonsInChat[i];
-    menu.appendChild(thisButton);
+    for (let i = buttonsInChat.length - 1; i >= 0; i--) {
+        const thisButton = buttonsInChat[i];
+        menu.appendChild(thisButton);
 
-    // Only apply transformations to button elements
-    if (thisButton.tagName.toLowerCase() === "button") {
-      thisButton.addEventListener("click", () => {
-        hideMenu();
-      });
+        // Only apply transformations to button elements
+        if (thisButton.tagName.toLowerCase() === "button") {
+            thisButton.addEventListener("click", () => {
+                hideMenu();
+            });
 
-      const buttonText = thisButton.textContent;
-      const matches = buttonText.match(/(\(.*?\))/);
+            const buttonText = thisButton.textContent;
+            const matches = buttonText.match(/(\(.*?\))/);
 
-      if (matches && matches.length > 1) {
-        // Apply the transparent-substring class to the matched substring
-        const substring = matches[1];
-        const newText = buttonText.replace(substring, `&nbsp;<span class="transparent-substring">${substring.slice(1, -1)}</span>`);
-        thisButton.innerHTML = newText;
-      }
+            if (matches && matches.length > 1) {
+                // Apply the transparent-substring class to the matched substring
+                const substring = matches[1];
+                const newText = buttonText.replace(substring, `&nbsp;<span class="transparent-substring">${substring.slice(1, -1)}</span>`);
+                thisButton.innerHTML = newText;
+            }
+        }
     }
-  }
 }
 
 function isMouseOverButtonOrMenu() {
-  return menu.matches(":hover") || button.matches(":hover");
+    return menu.matches(":hover") || button.matches(":hover");
 }
 
-button.addEventListener("mouseenter", function () {
-  if (!istouchscreen) {
-    showMenu();
-  }
+button.addEventListener("mouseenter", function() {
+    if (!istouchscreen) {
+        showMenu();
+    }
 });
 
-button.addEventListener("click", function () {
-  if (menu.style.display === "flex") {
-    hideMenu();
-  }
-  else {
-    showMenu();
-  }
+button.addEventListener("click", function() {
+    if (menu.style.display === "flex") {
+        hideMenu();
+    } else {
+        showMenu();
+    }
 });
 
 // Add event listener for mouseleave on the button
-button.addEventListener("mouseleave", function () {
-  // Delay to prevent menu hiding when the mouse leaves the button into the menu
-  setTimeout(function () {
-    if (!isMouseOverButtonOrMenu()) {
-      hideMenu();
-    }
-  }, 100);
+button.addEventListener("mouseleave", function() {
+    // Delay to prevent menu hiding when the mouse leaves the button into the menu
+    setTimeout(function() {
+        if (!isMouseOverButtonOrMenu()) {
+            hideMenu();
+        }
+    }, 100);
 });
 
 // Add event listener for mouseleave on the menu
-menu.addEventListener("mouseleave", function () {
-  // Delay to prevent menu hide when the mouse leaves the menu into the button
-  setTimeout(function () {
-    if (!isMouseOverButtonOrMenu()) {
-      hideMenu();
-    }
-  }, 100);
+menu.addEventListener("mouseleave", function() {
+    // Delay to prevent menu hide when the mouse leaves the menu into the button
+    setTimeout(function() {
+        if (!isMouseOverButtonOrMenu()) {
+            hideMenu();
+        }
+    }, 100);
 });
 
 // Add event listener for click anywhere in the document
-document.addEventListener("click", function (event) {
-  const target = event.target;
+document.addEventListener("click", function(event) {
+    const target = event.target;
 
-  // Check if the click is outside the button/menu and the menu is visible
-  if (!isMouseOverButtonOrMenu() && menu.style.display === "flex") {
-    hideMenu();
-  }
-
-  if (event.target.classList.contains("pfp_character")) {
-    toggleBigPicture();
-  }
-
-  // Handle sidebar clicks on mobile
-  if (isMobile()) {
-  // Check if the click did NOT originate from any of the specified toggle buttons or elements
-    if (
-      target.closest("#navigation-toggle") !== navigationToggle &&
-    target.closest("#past-chats-toggle") !== pastChatsToggle &&
-    target.closest("#chat-controls-toggle") !== chatControlsToggle &&
-    target.closest(".header_bar") !== headerBar &&
-    target.closest("#past-chats-row") !== pastChatsRow &&
-    target.closest("#chat-controls") !== chatControlsRow
-    ) {
-      handleIndividualSidebarClose(event);
+    // Check if the click is outside the button/menu and the menu is visible
+    if (!isMouseOverButtonOrMenu() && menu.style.display === "flex") {
+        hideMenu();
     }
-  }
+
+    if (event.target.classList.contains("pfp_character")) {
+        toggleBigPicture();
+    }
+
+    // Handle sidebar clicks on mobile
+    if (isMobile()) {
+        // Check if the click did NOT originate from any of the specified toggle buttons or elements
+        if (
+            target.closest("#navigation-toggle") !== navigationToggle &&
+            target.closest("#past-chats-toggle") !== pastChatsToggle &&
+            target.closest("#chat-controls-toggle") !== chatControlsToggle &&
+            target.closest(".header_bar") !== headerBar &&
+            target.closest("#past-chats-row") !== pastChatsRow &&
+            target.closest("#chat-controls") !== chatControlsRow
+        ) {
+            handleIndividualSidebarClose(event);
+        }
+    }
 });
 
 //------------------------------------------------
@@ -488,23 +504,23 @@ document.getElementById("chat-input-row").classList.add("chat-input-positioned")
 const chatTextArea = document.getElementById("chat-input").querySelector("textarea");
 
 function respondToChatInputVisibility(element, callback) {
-  var options = {
-    root: document.documentElement,
-  };
+    var options = {
+        root: document.documentElement,
+    };
 
-  var observer = new IntersectionObserver((entries, observer) => {
-    entries.forEach(entry => {
-      callback(entry.intersectionRatio > 0);
-    });
-  }, options);
+    var observer = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+            callback(entry.intersectionRatio > 0);
+        });
+    }, options);
 
-  observer.observe(element);
+    observer.observe(element);
 }
 
 function handleChatInputVisibilityChange(isVisible) {
-  if (isVisible) {
-    chatTextArea.focus();
-  }
+    if (isVisible) {
+        chatTextArea.focus();
+    }
 }
 
 respondToChatInputVisibility(chatTextArea, handleChatInputVisibilityChange);
@@ -516,36 +532,36 @@ respondToChatInputVisibility(chatTextArea, handleChatInputVisibilityChange);
 let bigPictureVisible = false;
 
 function addBigPicture() {
-  var imgElement = document.createElement("img");
-  var timestamp = new Date().getTime();
-  imgElement.src = "/file/user_data/cache/pfp_character.png?time=" + timestamp;
-  imgElement.classList.add("bigProfilePicture");
-  imgElement.addEventListener("load", function () {
-    this.style.visibility = "visible";
-  });
-  imgElement.addEventListener("error", function () {
-    this.style.visibility = "hidden";
-  });
+    var imgElement = document.createElement("img");
+    var timestamp = new Date().getTime();
+    imgElement.src = "/file/user_data/cache/pfp_character.png?time=" + timestamp;
+    imgElement.classList.add("bigProfilePicture");
+    imgElement.addEventListener("load", function() {
+        this.style.visibility = "visible";
+    });
+    imgElement.addEventListener("error", function() {
+        this.style.visibility = "hidden";
+    });
 
-  var imgElementParent = document.getElementById("chat").parentNode.parentNode.parentNode.parentNode.parentNode.parentNode.parentNode;
-  imgElementParent.appendChild(imgElement);
+    var imgElementParent = document.getElementById("chat").parentNode.parentNode.parentNode.parentNode.parentNode.parentNode.parentNode;
+    imgElementParent.appendChild(imgElement);
 }
 
 function deleteBigPicture() {
-  var bigProfilePictures = document.querySelectorAll(".bigProfilePicture");
-  bigProfilePictures.forEach(function (element) {
-    element.parentNode.removeChild(element);
-  });
+    var bigProfilePictures = document.querySelectorAll(".bigProfilePicture");
+    bigProfilePictures.forEach(function(element) {
+        element.parentNode.removeChild(element);
+    });
 }
 
 function toggleBigPicture() {
-  if(bigPictureVisible) {
-    deleteBigPicture();
-    bigPictureVisible = false;
-  } else {
-    addBigPicture();
-    bigPictureVisible = true;
-  }
+    if (bigPictureVisible) {
+        deleteBigPicture();
+        bigPictureVisible = false;
+    } else {
+        addBigPicture();
+        bigPictureVisible = true;
+    }
 }
 
 //------------------------------------------------
@@ -565,24 +581,24 @@ let currentChatInputHeight = chatInput.clientHeight;
 const renameTextArea = document.getElementById("rename-row").querySelector("textarea");
 
 function respondToRenameVisibility(element, callback) {
-  var options = {
-    root: document.documentElement,
-  };
+    var options = {
+        root: document.documentElement,
+    };
 
-  var observer = new IntersectionObserver((entries, observer) => {
-    entries.forEach(entry => {
-      callback(entry.intersectionRatio > 0);
-    });
-  }, options);
+    var observer = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+            callback(entry.intersectionRatio > 0);
+        });
+    }, options);
 
-  observer.observe(element);
+    observer.observe(element);
 }
 
 
 function handleVisibilityChange(isVisible) {
-  if (isVisible) {
-    renameTextArea.focus();
-  }
+    if (isVisible) {
+        renameTextArea.focus();
+    }
 }
 
 respondToRenameVisibility(renameTextArea, handleVisibilityChange);
@@ -593,7 +609,7 @@ respondToRenameVisibility(renameTextArea, handleVisibilityChange);
 //------------------------------------------------
 
 if (document.getElementById("extensions") === null) {
-  document.getElementById("chat-tab").style.marginBottom = "-29px";
+    document.getElementById("chat-tab").style.marginBottom = "-29px";
 }
 
 //------------------------------------------------
@@ -601,9 +617,9 @@ if (document.getElementById("extensions") === null) {
 //------------------------------------------------
 
 document.querySelectorAll(".focus-on-chat-input").forEach(element => {
-  element.addEventListener("click", function() {
-    document.querySelector("#chat-input textarea").focus();
-  });
+    element.addEventListener("click", function() {
+        document.querySelector("#chat-input textarea").focus();
+    });
 });
 
 //------------------------------------------------
@@ -622,68 +638,68 @@ let originalIndex; // To keep track of the original position
 let movedElement;
 
 function moveToChatTab() {
-  const characterMenu = document.getElementById("character-menu");
-  const grandParent = characterMenu.parentElement.parentElement;
+    const characterMenu = document.getElementById("character-menu");
+    const grandParent = characterMenu.parentElement.parentElement;
 
-  // Save the initial location for the character dropdown
-  if (!originalParent) {
-    originalParent = grandParent.parentElement;
-    originalIndex = Array.from(originalParent.children).indexOf(grandParent);
-    movedElement = grandParent;
-  }
+    // Save the initial location for the character dropdown
+    if (!originalParent) {
+        originalParent = grandParent.parentElement;
+        originalIndex = Array.from(originalParent.children).indexOf(grandParent);
+        movedElement = grandParent;
+    }
 
-  // Do not show the Character dropdown in the Chat tab when "instruct" mode is selected
-  const instructRadio = document.querySelector("#chat-mode input[value=\"instruct\"]");
-  if (instructRadio && instructRadio.checked) {
-    grandParent.style.display = "none";
-  }
+    // Do not show the Character dropdown in the Chat tab when "instruct" mode is selected
+    const instructRadio = document.querySelector("#chat-mode input[value=\"instruct\"]");
+    if (instructRadio && instructRadio.checked) {
+        grandParent.style.display = "none";
+    }
 
-  grandParent.children[0].style.minWidth = "100%";
+    grandParent.children[0].style.minWidth = "100%";
 
-  const chatControlsFirstChild = document.querySelector("#chat-controls").firstElementChild;
-  const newParent = chatControlsFirstChild;
-  let newPosition = newParent.children.length - 3;
+    const chatControlsFirstChild = document.querySelector("#chat-controls").firstElementChild;
+    const newParent = chatControlsFirstChild;
+    let newPosition = newParent.children.length - 3;
 
-  newParent.insertBefore(grandParent, newParent.children[newPosition]);
-  document.getElementById("save-character").style.display = "none";
-  document.getElementById("restore-character").style.display = "none";
+    newParent.insertBefore(grandParent, newParent.children[newPosition]);
+    document.getElementById("save-character").style.display = "none";
+    document.getElementById("restore-character").style.display = "none";
 }
 
 function restoreOriginalPosition() {
-  if (originalParent && movedElement) {
-    if (originalIndex >= originalParent.children.length) {
-      originalParent.appendChild(movedElement);
-    } else {
-      originalParent.insertBefore(movedElement, originalParent.children[originalIndex]);
-    }
+    if (originalParent && movedElement) {
+        if (originalIndex >= originalParent.children.length) {
+            originalParent.appendChild(movedElement);
+        } else {
+            originalParent.insertBefore(movedElement, originalParent.children[originalIndex]);
+        }
 
-    document.getElementById("save-character").style.display = "";
-    document.getElementById("restore-character").style.display = "";
-    movedElement.style.display = "";
-    movedElement.children[0].style.minWidth = "";
-  }
+        document.getElementById("save-character").style.display = "";
+        document.getElementById("restore-character").style.display = "";
+        movedElement.style.display = "";
+        movedElement.children[0].style.minWidth = "";
+    }
 }
 
 headerBar.addEventListener("click", (e) => {
-  if (e.target.tagName === "BUTTON") {
-    const tabName = e.target.textContent.trim();
-    if (tabName === "Chat") {
-      moveToChatTab();
-    } else {
-      restoreOriginalPosition();
+    if (e.target.tagName === "BUTTON") {
+        const tabName = e.target.textContent.trim();
+        if (tabName === "Chat") {
+            moveToChatTab();
+        } else {
+            restoreOriginalPosition();
+        }
     }
-  }
 });
 
 //------------------------------------------------
 // Add a confirmation dialog when leaving the page
 // Useful to avoid data loss
 //------------------------------------------------
-window.addEventListener("beforeunload", function (event) {
-  // Cancel the event
-  event.preventDefault();
-  // Chrome requires returnValue to be set
-  event.returnValue = "";
+window.addEventListener("beforeunload", function(event) {
+    // Cancel the event
+    event.preventDefault();
+    // Chrome requires returnValue to be set
+    event.returnValue = "";
 });
 
 moveToChatTab();
@@ -726,21 +742,21 @@ const pastChatsRow = document.getElementById("past-chats-row");
 const chatControlsRow = document.getElementById("chat-controls");
 
 if (chatTab) {
-  // Create past-chats-toggle div
-  const pastChatsToggle = document.createElement("div");
-  pastChatsToggle.id = "past-chats-toggle";
-  pastChatsToggle.innerHTML = leftArrowSVG; // Set initial icon to left arrow
-  pastChatsToggle.classList.add("past-chats-open"); // Set initial position
+    // Create past-chats-toggle div
+    const pastChatsToggle = document.createElement("div");
+    pastChatsToggle.id = "past-chats-toggle";
+    pastChatsToggle.innerHTML = leftArrowSVG; // Set initial icon to left arrow
+    pastChatsToggle.classList.add("past-chats-open"); // Set initial position
 
-  // Create chat-controls-toggle div
-  const chatControlsToggle = document.createElement("div");
-  chatControlsToggle.id = "chat-controls-toggle";
-  chatControlsToggle.innerHTML = rightArrowSVG; // Set initial icon to right arrow
-  chatControlsToggle.classList.add("chat-controls-open"); // Set initial position
+    // Create chat-controls-toggle div
+    const chatControlsToggle = document.createElement("div");
+    chatControlsToggle.id = "chat-controls-toggle";
+    chatControlsToggle.innerHTML = rightArrowSVG; // Set initial icon to right arrow
+    chatControlsToggle.classList.add("chat-controls-open"); // Set initial position
 
-  // Append both elements to the chat-tab
-  chatTab.appendChild(pastChatsToggle);
-  chatTab.appendChild(chatControlsToggle);
+    // Append both elements to the chat-tab
+    chatTab.appendChild(pastChatsToggle);
+    chatTab.appendChild(chatControlsToggle);
 }
 
 // Create navigation toggle div
@@ -755,103 +771,103 @@ const pastChatsToggle = document.getElementById("past-chats-toggle");
 const chatControlsToggle = document.getElementById("chat-controls-toggle");
 
 function handleIndividualSidebarClose(event) {
-  const target = event.target;
+    const target = event.target;
 
-  // Close navigation bar if click is outside and it is open
-  if (!headerBar.contains(target) && !headerBar.classList.contains("sidebar-hidden")) {
-    toggleSidebar(headerBar, navigationToggle, true);
-  }
+    // Close navigation bar if click is outside and it is open
+    if (!headerBar.contains(target) && !headerBar.classList.contains("sidebar-hidden")) {
+        toggleSidebar(headerBar, navigationToggle, true);
+    }
 
-  // Close past chats row if click is outside and it is open
-  if (!pastChatsRow.contains(target) && !pastChatsRow.classList.contains("sidebar-hidden")) {
-    toggleSidebar(pastChatsRow, pastChatsToggle, true);
-  }
+    // Close past chats row if click is outside and it is open
+    if (!pastChatsRow.contains(target) && !pastChatsRow.classList.contains("sidebar-hidden")) {
+        toggleSidebar(pastChatsRow, pastChatsToggle, true);
+    }
 
-  // Close chat controls row if click is outside and it is open
-  if (!chatControlsRow.contains(target) && !chatControlsRow.classList.contains("sidebar-hidden")) {
-    toggleSidebar(chatControlsRow, chatControlsToggle, true);
-  }
+    // Close chat controls row if click is outside and it is open
+    if (!chatControlsRow.contains(target) && !chatControlsRow.classList.contains("sidebar-hidden")) {
+        toggleSidebar(chatControlsRow, chatControlsToggle, true);
+    }
 }
 
 function toggleSidebar(sidebar, toggle, forceClose = false) {
-  const isCurrentlyHidden = sidebar.classList.contains("sidebar-hidden");
-  const shouldClose = !isCurrentlyHidden;
+    const isCurrentlyHidden = sidebar.classList.contains("sidebar-hidden");
+    const shouldClose = !isCurrentlyHidden;
 
-  // Apply visibility classes
-  sidebar.classList.toggle("sidebar-hidden", shouldClose);
-  sidebar.classList.toggle("sidebar-shown", !shouldClose);
-
-  if (sidebar === headerBar) {
-    // Special handling for header bar
-    document.documentElement.style.setProperty("--header-width", shouldClose ? "0px" : "112px");
-    pastChatsRow.classList.toggle("negative-header", shouldClose);
-    pastChatsToggle.classList.toggle("negative-header", shouldClose);
-    toggle.innerHTML = shouldClose ? hamburgerMenuSVG : closeMenuSVG;
-  } else if (sidebar === pastChatsRow) {
-    // Past chats sidebar
-    toggle.classList.toggle("past-chats-closed", shouldClose);
-    toggle.classList.toggle("past-chats-open", !shouldClose);
-    toggle.innerHTML = shouldClose ? rightArrowSVG : leftArrowSVG;
-  } else if (sidebar === chatControlsRow) {
-    // Chat controls sidebar
-    toggle.classList.toggle("chat-controls-closed", shouldClose);
-    toggle.classList.toggle("chat-controls-open", !shouldClose);
-    toggle.innerHTML = shouldClose ? leftArrowSVG : rightArrowSVG;
-  }
-
-  // Mobile handling
-  if (isMobile()) {
+    // Apply visibility classes
+    sidebar.classList.toggle("sidebar-hidden", shouldClose);
     sidebar.classList.toggle("sidebar-shown", !shouldClose);
-  }
+
+    if (sidebar === headerBar) {
+        // Special handling for header bar
+        document.documentElement.style.setProperty("--header-width", shouldClose ? "0px" : "112px");
+        pastChatsRow.classList.toggle("negative-header", shouldClose);
+        pastChatsToggle.classList.toggle("negative-header", shouldClose);
+        toggle.innerHTML = shouldClose ? hamburgerMenuSVG : closeMenuSVG;
+    } else if (sidebar === pastChatsRow) {
+        // Past chats sidebar
+        toggle.classList.toggle("past-chats-closed", shouldClose);
+        toggle.classList.toggle("past-chats-open", !shouldClose);
+        toggle.innerHTML = shouldClose ? rightArrowSVG : leftArrowSVG;
+    } else if (sidebar === chatControlsRow) {
+        // Chat controls sidebar
+        toggle.classList.toggle("chat-controls-closed", shouldClose);
+        toggle.classList.toggle("chat-controls-open", !shouldClose);
+        toggle.innerHTML = shouldClose ? leftArrowSVG : rightArrowSVG;
+    }
+
+    // Mobile handling
+    if (isMobile()) {
+        sidebar.classList.toggle("sidebar-shown", !shouldClose);
+    }
 }
 
 // Function to check if the device is mobile
 function isMobile() {
-  return window.innerWidth <= 924;
+    return window.innerWidth <= 924;
 }
 
 // Function to initialize sidebars
 function initializeSidebars() {
-  const isOnMobile = isMobile();
+    const isOnMobile = isMobile();
 
-  if (isOnMobile) {
-    // Mobile state: Hide sidebars and set closed states
-    [pastChatsRow, chatControlsRow, headerBar].forEach(el => {
-      el.classList.add("sidebar-hidden");
-      el.classList.remove("sidebar-shown");
-    });
+    if (isOnMobile) {
+        // Mobile state: Hide sidebars and set closed states
+        [pastChatsRow, chatControlsRow, headerBar].forEach(el => {
+            el.classList.add("sidebar-hidden");
+            el.classList.remove("sidebar-shown");
+        });
 
-    document.documentElement.style.setProperty("--header-width", "0px");
-    pastChatsRow.classList.add("negative-header");
-    pastChatsToggle.classList.add("negative-header", "past-chats-closed");
-    pastChatsToggle.classList.remove("past-chats-open");
+        document.documentElement.style.setProperty("--header-width", "0px");
+        pastChatsRow.classList.add("negative-header");
+        pastChatsToggle.classList.add("negative-header", "past-chats-closed");
+        pastChatsToggle.classList.remove("past-chats-open");
 
-    [chatControlsToggle, navigationToggle].forEach(el => {
-      el.classList.add("chat-controls-closed");
-      el.classList.remove("chat-controls-open");
-    });
+        [chatControlsToggle, navigationToggle].forEach(el => {
+            el.classList.add("chat-controls-closed");
+            el.classList.remove("chat-controls-open");
+        });
 
-    pastChatsToggle.innerHTML = rightArrowSVG;
-    chatControlsToggle.innerHTML = leftArrowSVG;
-    navigationToggle.innerHTML = hamburgerMenuSVG;
-  } else {
-    // Desktop state: Show sidebars and set open states
-    [pastChatsRow, chatControlsRow].forEach(el => {
-      el.classList.remove("sidebar-hidden", "sidebar-shown");
-    });
+        pastChatsToggle.innerHTML = rightArrowSVG;
+        chatControlsToggle.innerHTML = leftArrowSVG;
+        navigationToggle.innerHTML = hamburgerMenuSVG;
+    } else {
+        // Desktop state: Show sidebars and set open states
+        [pastChatsRow, chatControlsRow].forEach(el => {
+            el.classList.remove("sidebar-hidden", "sidebar-shown");
+        });
 
-    pastChatsToggle.classList.add("past-chats-open");
-    pastChatsToggle.classList.remove("past-chats-closed");
+        pastChatsToggle.classList.add("past-chats-open");
+        pastChatsToggle.classList.remove("past-chats-closed");
 
-    [chatControlsToggle, navigationToggle].forEach(el => {
-      el.classList.add("chat-controls-open");
-      el.classList.remove("chat-controls-closed");
-    });
+        [chatControlsToggle, navigationToggle].forEach(el => {
+            el.classList.add("chat-controls-open");
+            el.classList.remove("chat-controls-closed");
+        });
 
-    pastChatsToggle.innerHTML = leftArrowSVG;
-    chatControlsToggle.innerHTML = rightArrowSVG;
-    navigationToggle.innerHTML = closeMenuSVG;
-  }
+        pastChatsToggle.innerHTML = leftArrowSVG;
+        chatControlsToggle.innerHTML = rightArrowSVG;
+        navigationToggle.innerHTML = closeMenuSVG;
+    }
 }
 
 // Run the initializer when the page loads
@@ -859,47 +875,47 @@ initializeSidebars();
 
 // Add click event listeners to toggle buttons
 pastChatsToggle.addEventListener("click", () => {
-  const isCurrentlyOpen = !pastChatsRow.classList.contains("sidebar-hidden");
-  toggleSidebar(pastChatsRow, pastChatsToggle);
+    const isCurrentlyOpen = !pastChatsRow.classList.contains("sidebar-hidden");
+    toggleSidebar(pastChatsRow, pastChatsToggle);
 
-  // On desktop, open/close both sidebars at the same time
-  if (!isMobile()) {
-    if (isCurrentlyOpen) {
-      // If we just closed the left sidebar, also close the right sidebar
-      if (!chatControlsRow.classList.contains("sidebar-hidden")) {
-        toggleSidebar(chatControlsRow, chatControlsToggle, true);
-      }
-    } else {
-      // If we just opened the left sidebar, also open the right sidebar
-      if (chatControlsRow.classList.contains("sidebar-hidden")) {
-        toggleSidebar(chatControlsRow, chatControlsToggle, false);
-      }
+    // On desktop, open/close both sidebars at the same time
+    if (!isMobile()) {
+        if (isCurrentlyOpen) {
+            // If we just closed the left sidebar, also close the right sidebar
+            if (!chatControlsRow.classList.contains("sidebar-hidden")) {
+                toggleSidebar(chatControlsRow, chatControlsToggle, true);
+            }
+        } else {
+            // If we just opened the left sidebar, also open the right sidebar
+            if (chatControlsRow.classList.contains("sidebar-hidden")) {
+                toggleSidebar(chatControlsRow, chatControlsToggle, false);
+            }
+        }
     }
-  }
 });
 
 chatControlsToggle.addEventListener("click", () => {
-  const isCurrentlyOpen = !chatControlsRow.classList.contains("sidebar-hidden");
-  toggleSidebar(chatControlsRow, chatControlsToggle);
+    const isCurrentlyOpen = !chatControlsRow.classList.contains("sidebar-hidden");
+    toggleSidebar(chatControlsRow, chatControlsToggle);
 
-  // On desktop, open/close both sidebars at the same time
-  if (!isMobile()) {
-    if (isCurrentlyOpen) {
-      // If we just closed the right sidebar, also close the left sidebar
-      if (!pastChatsRow.classList.contains("sidebar-hidden")) {
-        toggleSidebar(pastChatsRow, pastChatsToggle, true);
-      }
-    } else {
-      // If we just opened the right sidebar, also open the left sidebar
-      if (pastChatsRow.classList.contains("sidebar-hidden")) {
-        toggleSidebar(pastChatsRow, pastChatsToggle, false);
-      }
+    // On desktop, open/close both sidebars at the same time
+    if (!isMobile()) {
+        if (isCurrentlyOpen) {
+            // If we just closed the right sidebar, also close the left sidebar
+            if (!pastChatsRow.classList.contains("sidebar-hidden")) {
+                toggleSidebar(pastChatsRow, pastChatsToggle, true);
+            }
+        } else {
+            // If we just opened the right sidebar, also open the left sidebar
+            if (pastChatsRow.classList.contains("sidebar-hidden")) {
+                toggleSidebar(pastChatsRow, pastChatsToggle, false);
+            }
+        }
     }
-  }
 });
 
 navigationToggle.addEventListener("click", () => {
-  toggleSidebar(headerBar, navigationToggle);
+    toggleSidebar(headerBar, navigationToggle);
 });
 
 //------------------------------------------------
@@ -908,16 +924,20 @@ navigationToggle.addEventListener("click", () => {
 //------------------------------------------------
 
 if (isMobile()) {
-  // Target the textarea
-  const textarea = document.querySelector("#chat-input textarea");
+    // Target the textarea
+    const textarea = document.querySelector("#chat-input textarea");
 
-  if (textarea) {
-    // Simulate adding and removing a newline
-    textarea.value += "\n";
-    textarea.dispatchEvent(new Event("input", { bubbles: true }));
-    textarea.value = textarea.value.slice(0, -1);
-    textarea.dispatchEvent(new Event("input", { bubbles: true }));
-  }
+    if (textarea) {
+        // Simulate adding and removing a newline
+        textarea.value += "\n";
+        textarea.dispatchEvent(new Event("input", {
+            bubbles: true
+        }));
+        textarea.value = textarea.value.slice(0, -1);
+        textarea.dispatchEvent(new Event("input", {
+            bubbles: true
+        }));
+    }
 }
 
 //------------------------------------------------
@@ -925,16 +945,16 @@ if (isMobile()) {
 //------------------------------------------------
 
 function createMobileTopBar() {
-  const chatTab = document.getElementById("chat-tab");
+    const chatTab = document.getElementById("chat-tab");
 
-  // Only create the top bar if it doesn't already exist
-  if (chatTab && !chatTab.querySelector(".mobile-top-bar")) {
-    const topBar = document.createElement("div");
-    topBar.classList.add("mobile-top-bar");
+    // Only create the top bar if it doesn't already exist
+    if (chatTab && !chatTab.querySelector(".mobile-top-bar")) {
+        const topBar = document.createElement("div");
+        topBar.classList.add("mobile-top-bar");
 
-    // Insert the top bar as the first child of chat-tab
-    chatTab.appendChild(topBar);
-  }
+        // Insert the top bar as the first child of chat-tab
+        chatTab.appendChild(topBar);
+    }
 }
 
 createMobileTopBar();
@@ -944,51 +964,51 @@ createMobileTopBar();
 //------------------------------------------------
 
 function navigateLastAssistantMessage(direction) {
-  const chat = document.querySelector("#chat");
-  if (!chat) return false;
+    const chat = document.querySelector("#chat");
+    if (!chat) return false;
 
-  const messages = chat.querySelectorAll("[data-index]");
-  if (messages.length === 0) return false;
+    const messages = chat.querySelectorAll("[data-index]");
+    if (messages.length === 0) return false;
 
-  // Find the last assistant message (starting from the end)
-  let lastAssistantMessage = null;
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i];
-    if (
-      msg.classList.contains("assistant-message") ||
-      msg.querySelector(".circle-bot") ||
-      msg.querySelector(".text-bot")
-    ) {
-      lastAssistantMessage = msg;
-      break;
+    // Find the last assistant message (starting from the end)
+    let lastAssistantMessage = null;
+    for (let i = messages.length - 1; i >= 0; i--) {
+        const msg = messages[i];
+        if (
+            msg.classList.contains("assistant-message") ||
+            msg.querySelector(".circle-bot") ||
+            msg.querySelector(".text-bot")
+        ) {
+            lastAssistantMessage = msg;
+            break;
+        }
     }
-  }
 
-  if (!lastAssistantMessage) return false;
+    if (!lastAssistantMessage) return false;
 
-  const buttons = lastAssistantMessage.querySelectorAll(".version-nav-button");
+    const buttons = lastAssistantMessage.querySelectorAll(".version-nav-button");
 
-  for (let i = 0; i < buttons.length; i++) {
-    const button = buttons[i];
-    const onclick = button.getAttribute("onclick");
-    const disabled = button.hasAttribute("disabled");
+    for (let i = 0; i < buttons.length; i++) {
+        const button = buttons[i];
+        const onclick = button.getAttribute("onclick");
+        const disabled = button.hasAttribute("disabled");
 
-    const isLeft = onclick && onclick.includes("'left'");
-    const isRight = onclick && onclick.includes("'right'");
+        const isLeft = onclick && onclick.includes("'left'");
+        const isRight = onclick && onclick.includes("'right'");
 
-    if (!disabled) {
-      if (direction === "left" && isLeft) {
-        navigateVersion(button, direction);
-        return true;
-      }
-      if (direction === "right" && isRight) {
-        navigateVersion(button, direction);
-        return true;
-      }
+        if (!disabled) {
+            if (direction === "left" && isLeft) {
+                navigateVersion(button, direction);
+                return true;
+            }
+            if (direction === "right" && isRight) {
+                navigateVersion(button, direction);
+                return true;
+            }
+        }
     }
-  }
 
-  return false;
+    return false;
 }
 
 //------------------------------------------------
@@ -998,37 +1018,39 @@ function navigateLastAssistantMessage(direction) {
 const MAX_PLAIN_TEXT_LENGTH = 2500;
 
 function setupPasteHandler() {
-  const textbox = document.querySelector("#chat-input textarea[data-testid=\"textbox\"]");
-  const fileInput = document.querySelector("#chat-input input[data-testid=\"file-upload\"]");
+    const textbox = document.querySelector("#chat-input textarea[data-testid=\"textbox\"]");
+    const fileInput = document.querySelector("#chat-input input[data-testid=\"file-upload\"]");
 
-  if (!textbox || !fileInput) {
-    setTimeout(setupPasteHandler, 500);
-    return;
-  }
-
-  textbox.addEventListener("paste", async (event) => {
-    const text = event.clipboardData?.getData("text");
-
-    if (text && text.length > MAX_PLAIN_TEXT_LENGTH && document.querySelector("#paste_to_attachment input[data-testid=\"checkbox\"]")?.checked) {
-      event.preventDefault();
-
-      const file = new File([text], "pasted_text.txt", {
-        type: "text/plain",
-        lastModified: Date.now()
-      });
-
-      const dataTransfer = new DataTransfer();
-      dataTransfer.items.add(file);
-      fileInput.files = dataTransfer.files;
-      fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+    if (!textbox || !fileInput) {
+        setTimeout(setupPasteHandler, 500);
+        return;
     }
-  });
+
+    textbox.addEventListener("paste", async (event) => {
+        const text = event.clipboardData?.getData("text");
+
+        if (text && text.length > MAX_PLAIN_TEXT_LENGTH && document.querySelector("#paste_to_attachment input[data-testid=\"checkbox\"]")?.checked) {
+            event.preventDefault();
+
+            const file = new File([text], "pasted_text.txt", {
+                type: "text/plain",
+                lastModified: Date.now()
+            });
+
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            fileInput.files = dataTransfer.files;
+            fileInput.dispatchEvent(new Event("change", {
+                bubbles: true
+            }));
+        }
+    });
 }
 
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", setupPasteHandler);
+    document.addEventListener("DOMContentLoaded", setupPasteHandler);
 } else {
-  setupPasteHandler();
+    setupPasteHandler();
 }
 
 //------------------------------------------------
@@ -1043,67 +1065,69 @@ document.querySelector("#chat-input .upload-button").title = "Upload text files,
 //------------------------------------------------
 
 function addMiniDeletes() {
-  document.querySelectorAll("#past-chats label:not(.has-delete)").forEach(label => {
-    const container = document.createElement("span");
-    container.className = "delete-container";
+    document.querySelectorAll("#past-chats label:not(.has-delete)").forEach(label => {
+        const container = document.createElement("span");
+        container.className = "delete-container";
 
-    label.classList.add("chat-label-with-delete");
+        label.classList.add("chat-label-with-delete");
 
-    const trashBtn = document.createElement("button");
-    trashBtn.innerHTML = "🗑️";
-    trashBtn.className = "trash-btn";
+        const trashBtn = document.createElement("button");
+        trashBtn.innerHTML = "🗑️";
+        trashBtn.className = "trash-btn";
 
-    const cancelBtn = document.createElement("button");
-    cancelBtn.innerHTML = "✕";
-    cancelBtn.className = "cancel-btn";
+        const cancelBtn = document.createElement("button");
+        cancelBtn.innerHTML = "✕";
+        cancelBtn.className = "cancel-btn";
 
-    const confirmBtn = document.createElement("button");
-    confirmBtn.innerHTML = "✓";
-    confirmBtn.className = "confirm-btn";
+        const confirmBtn = document.createElement("button");
+        confirmBtn.innerHTML = "✓";
+        confirmBtn.className = "confirm-btn";
 
-    label.addEventListener("mouseenter", () => {
-      container.style.opacity = "1";
+        label.addEventListener("mouseenter", () => {
+            container.style.opacity = "1";
+        });
+
+        label.addEventListener("mouseleave", () => {
+            container.style.opacity = "0";
+        });
+
+        trashBtn.onclick = (e) => {
+            e.stopPropagation();
+            label.querySelector("input").click();
+            document.querySelector("#delete_chat").click();
+            trashBtn.style.display = "none";
+            cancelBtn.style.display = "flex";
+            confirmBtn.style.display = "flex";
+        };
+
+        cancelBtn.onclick = (e) => {
+            e.stopPropagation();
+            document.querySelector("#delete_chat-cancel").click();
+            resetButtons();
+        };
+
+        confirmBtn.onclick = (e) => {
+            e.stopPropagation();
+            document.querySelector("#delete_chat-confirm").click();
+            resetButtons();
+        };
+
+        function resetButtons() {
+            trashBtn.style.display = "inline";
+            cancelBtn.style.display = "none";
+            confirmBtn.style.display = "none";
+        }
+
+        container.append(trashBtn, cancelBtn, confirmBtn);
+        label.appendChild(container);
+        label.classList.add("has-delete");
     });
-
-    label.addEventListener("mouseleave", () => {
-      container.style.opacity = "0";
-    });
-
-    trashBtn.onclick = (e) => {
-      e.stopPropagation();
-      label.querySelector("input").click();
-      document.querySelector("#delete_chat").click();
-      trashBtn.style.display = "none";
-      cancelBtn.style.display = "flex";
-      confirmBtn.style.display = "flex";
-    };
-
-    cancelBtn.onclick = (e) => {
-      e.stopPropagation();
-      document.querySelector("#delete_chat-cancel").click();
-      resetButtons();
-    };
-
-    confirmBtn.onclick = (e) => {
-      e.stopPropagation();
-      document.querySelector("#delete_chat-confirm").click();
-      resetButtons();
-    };
-
-    function resetButtons() {
-      trashBtn.style.display = "inline";
-      cancelBtn.style.display = "none";
-      confirmBtn.style.display = "none";
-    }
-
-    container.append(trashBtn, cancelBtn, confirmBtn);
-    label.appendChild(container);
-    label.classList.add("has-delete");
-  });
 }
 
 new MutationObserver(() => addMiniDeletes()).observe(
-  document.querySelector("#past-chats"),
-  {childList: true, subtree: true}
+    document.querySelector("#past-chats"), {
+        childList: true,
+        subtree: true
+    }
 );
 addMiniDeletes();
