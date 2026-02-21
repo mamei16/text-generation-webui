@@ -144,6 +144,7 @@ const targetElement = document.getElementById("chat").parentNode.parentNode.pare
 targetElement.classList.add("pretty_scrollbar");
 targetElement.classList.add("chat-parent");
 let scrollTimeout;
+let thinkScrollTimeout;
 
 function throttle(fn, delay) {
   let lastCall = 0;
@@ -182,13 +183,17 @@ const observer = new MutationObserver(function(mutations) {
                 syntaxHighlightKatex(addedNode);
 
             else if (addedNode.matches(".thinking-block")) {
-                addedNode.children[1].addEventListener("scroll", throttle(function() {
-                  clearTimeout(scrollTimeout);
-                  scrollTimeout = setTimeout(() => {  // Ensure a final doSyntaxHighlighting() call once scrolling stops
-                    doSyntaxHighlighting();
-                  }, 150);
-                  doSyntaxHighlighting();
-                }, 100));
+                thinkingContent = addedNode.children[1];
+                if (!thinkingContent.hasScrollListener) {
+                    thinkingContent.addEventListener("scroll", throttle(function() {
+                      clearTimeout(scrollTimeout);
+                      scrollTimeout = setTimeout(() => {  // Ensure a final doSyntaxHighlighting() call once scrolling stops
+                        doSyntaxHighlighting();
+                      }, 150);
+                      doSyntaxHighlighting();
+                    }, 100));
+                    thinkingContent.hasScrollListener = true;
+                }
             }
         }
     }
@@ -286,7 +291,7 @@ function doSyntaxHighlighting() {
         // Go from last message to first
         for (let i = messageBodies.length - 1; i >= 0; i--) {
           const messageBody = messageBodies[i];
-          
+
           intersectObserver.observe(messageBody);
 
           if (isElementVisibleOnScreen(messageBody)) {
@@ -303,14 +308,20 @@ function doSyntaxHighlighting() {
             mathContainers.forEach(container => {
               intersectObserver.observe(container);
 
+              let thinkScrollTimeout;
               if (container.className === "thinking-title") {
-                container.parentElement.parentElement.children[1].addEventListener("scroll", throttle(function() {
-                  clearTimeout(scrollTimeout);
-                  scrollTimeout = setTimeout(() => {  // Ensure a final doSyntaxHighlighting() call once scrolling stops
-                    doSyntaxHighlighting();
-                  }, 150);
-                  doSyntaxHighlighting();
-                }, 100));
+                thinkingContent = container.parentElement.parentElement.children[1];
+                if (!thinkingContent.hasScrollListener) {
+                    thinkingContent.addEventListener("scroll", throttle(function() {
+                      clearTimeout(thinkScrollTimeout);
+                      thinkScrollTimeout = setTimeout(() => {  // Ensure a final doSyntaxHighlighting() call once scrolling stops
+                        doSyntaxHighlighting();
+                      }, 150);
+                      console.log("Scrolling thinking block!");
+                      doSyntaxHighlighting();
+                    }, 100));
+                    thinkingContent.hasScrollListener = true;
+                }
               }
 
               syntaxHighlightKatex(container);
