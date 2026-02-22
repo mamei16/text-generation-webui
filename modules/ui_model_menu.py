@@ -37,8 +37,9 @@ def create_ui():
                     shared.gradio['save_model_settings'] = gr.Button("Save settings", elem_classes='refresh-button', interactive=not mu)
 
                 with gr.Row():
-                    shared.gradio['loader'] = gr.Dropdown(label="Model loader", choices=loaders.loaders_and_params.keys() if not shared.args.portable else ['llama.cpp'], value=None)
-                    shared.gradio['default_param_preset'] = gr.Dropdown(choices=utils.get_available_presets(), value=None, label='Default preset')
+                    shared.gradio['loader'] = gr.Dropdown(label="Model loader", choices=loaders.loaders_and_params.keys() if not shared.args.portable else ['llama.cpp'], value=None, elem_classes='slim-dropdown')
+                    shared.gradio['default_param_preset'] = gr.Dropdown(choices=utils.get_available_presets(), value=None, label='Default preset', elem_classes='slim-dropdown')
+                    ui.create_refresh_button(shared.gradio['default_param_preset'], lambda: None,lambda: {'choices': utils.get_available_presets()}, "refresh-button", interactive=not mu)
                 with gr.Blocks():
                     gr.Markdown("## Main options")
                     with gr.Row():
