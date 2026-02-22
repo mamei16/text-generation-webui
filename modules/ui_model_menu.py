@@ -38,7 +38,7 @@ def create_ui():
 
                 with gr.Row():
                     shared.gradio['loader'] = gr.Dropdown(label="Model loader", choices=loaders.loaders_and_params.keys() if not shared.args.portable else ['llama.cpp'], value=None)
-                    shared.gradio['default_param_preset'] = gr.Dropdown(choices=utils.get_available_presets(), value=shared.settings['preset'], label='Default preset')
+                    shared.gradio['default_param_preset'] = gr.Dropdown(choices=utils.get_available_presets(), value=None, label='Default preset')
                 with gr.Blocks():
                     gr.Markdown("## Main options")
                     with gr.Row():
