@@ -334,7 +334,6 @@ function doSyntaxHighlighting() {
                                     thinkScrollTimeout = setTimeout(() => { // Ensure a final doSyntaxHighlighting()
                                         doSyntaxHighlighting();             // call once scrolling stops
                                     }, 150);
-                                    console.log("Scrolling thinking block!");
                                     doSyntaxHighlighting();
                                 }, 100));
                                 thinkingContent.hasScrollListener = true;
