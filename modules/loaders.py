@@ -31,6 +31,7 @@ loaders_and_params = OrderedDict({
         'mmproj',
         'mmproj_accordion',
         'vram_info',
+        'default_param_preset',
     ],
     'Transformers': [
         'gpu_split',
@@ -47,6 +48,7 @@ loaders_and_params = OrderedDict({
         'use_double_quant',
         'bf16',
         'no_use_fast',
+        'default_param_preset',
     ],
     'ExLlamav3_HF': [
         'ctx_size',
@@ -56,6 +58,7 @@ loaders_and_params = OrderedDict({
         'no_use_fast',
         'enable_tp',
         'tp_backend',
+        'default_param_preset',
     ],
     'ExLlamav3': [
         'ctx_size',
@@ -67,6 +70,7 @@ loaders_and_params = OrderedDict({
         'speculative_decoding_accordion',
         'enable_tp',
         'tp_backend',
+        'default_param_preset',
     ],
     'ExLlamav2_HF': [
         'ctx_size',
@@ -82,6 +86,7 @@ loaders_and_params = OrderedDict({
         'no_sdpa',
         'cfg_cache',
         'no_use_fast',
+        'default_param_preset',
     ],
     'ExLlamav2': [
         'ctx_size',
@@ -99,6 +104,7 @@ loaders_and_params = OrderedDict({
         'draft_max',
         'ctx_size_draft',
         'speculative_decoding_accordion',
+        'default_param_preset',
     ],
     'TensorRT-LLM': [
         'ctx_size',

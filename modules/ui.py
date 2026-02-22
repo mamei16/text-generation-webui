@@ -123,6 +123,7 @@ def list_model_elements():
     elements = [
         'filter_by_loader',
         'loader',
+        'default_param_preset',
         'cpu_memory',
         'gpu_layers',
         'threads',

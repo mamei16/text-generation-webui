@@ -186,6 +186,7 @@ def get_model_metadata(model):
     if 'rope_freq_base' in model_settings and model_settings['rope_freq_base'] == 10000:
         model_settings.pop('rope_freq_base')
 
+    model_settings["default_param_preset"] = None
     # Apply user settings from user_data/models/config-user.yaml
     settings = shared.user_config
     for pat in settings:

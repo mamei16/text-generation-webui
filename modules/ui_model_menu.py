@@ -36,7 +36,9 @@ def create_ui():
                     shared.gradio['unload_model'] = gr.Button("Unload", elem_classes='refresh-button', interactive=not mu)
                     shared.gradio['save_model_settings'] = gr.Button("Save settings", elem_classes='refresh-button', interactive=not mu)
 
-                shared.gradio['loader'] = gr.Dropdown(label="Model loader", choices=loaders.loaders_and_params.keys() if not shared.args.portable else ['llama.cpp'], value=None)
+                with gr.Row():
+                    shared.gradio['loader'] = gr.Dropdown(label="Model loader", choices=loaders.loaders_and_params.keys() if not shared.args.portable else ['llama.cpp'], value=None)
+                    shared.gradio['default_param_preset'] = gr.Dropdown(choices=utils.get_available_presets(), value=shared.settings['preset'], label='Default preset', elem_classes='slim-dropdown')
                 with gr.Blocks():
                     gr.Markdown("## Main options")
                     with gr.Row():
@@ -156,7 +158,8 @@ def create_event_handlers():
         ui.gather_interface_values, gradio(shared.input_elements), gradio('interface_state')).then(
         update_model_parameters, gradio('interface_state'), None).then(
         partial(load_model_wrapper, autoload=True), gradio('model_menu', 'loader'), gradio('model_status'), show_progress=True).success(
-        handle_load_model_event_final, gradio('truncation_length', 'loader', 'interface_state'), gradio('truncation_length', 'filter_by_loader'), show_progress=False)
+        handle_load_model_event_final, gradio('truncation_length', 'loader', 'interface_state'), gradio('truncation_length', 'filter_by_loader'), show_progress=False).then(
+        update_parameter_preset, gradio('default_param_preset', 'preset_menu'), gradio('preset_menu'))
 
     shared.gradio['unload_model'].click(handle_unload_model_click, None, gradio('model_status'), show_progress=False).then(
         partial(update_gpu_layers_and_vram, auto_adjust=True), gradio('loader', 'model_menu', 'gpu_layers', 'ctx_size', 'cache_type'), gradio('vram_info', 'gpu_layers'), show_progress=False)
@@ -401,6 +404,13 @@ def get_initial_gpu_layers_max():
         return model_settings.get('max_gpu_layers', model_settings.get('gpu_layers', 256))
 
     return 256
+
+
+def update_parameter_preset(default_preset, current_preset):
+    if default_preset:
+        return default_preset
+    else:
+        return current_preset
 
 
 def handle_load_model_event_initial(model, state):
