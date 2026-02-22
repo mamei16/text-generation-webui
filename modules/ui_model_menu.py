@@ -407,8 +407,13 @@ def get_initial_gpu_layers_max():
 
 
 def update_parameter_preset(default_preset, current_preset):
-    if default_preset:
-        return default_preset
+    if default_preset not in ['None', None, '']:
+        path = Path(f'user_data/presets/{default_preset}.yaml')
+        if path.exists():
+            return default_preset
+        else:
+            logger.warning(f"The default preset \"{default_preset}\" does not exist in \"user_data/presets/\".")
+            return current_preset
     else:
         return current_preset
 
