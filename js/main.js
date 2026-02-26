@@ -313,12 +313,6 @@ function doSyntaxHighlighting() {
                 if (isElementVisibleOnScreen(messageBody)) {
                     hasSeenVisible = true;
 
-                    // Handle both code and math in a single pass through each message
-                    const codeBlocks = messageBody.querySelectorAll("pre code:not([data-highlighted])");
-                    codeBlocks.forEach((codeBlock) => {
-                        syntaxHighlightCodeBlock(codeBlock);
-                    });
-
                     // Only render math in visible elements
                     const mathContainers = messageBody.querySelectorAll("p, span, li, td, th, h1, h2, h3, h4, h5, h6,"
                                                                         + "blockquote, figcaption, caption, dd, dt");
@@ -341,6 +335,12 @@ function doSyntaxHighlighting() {
                         }
 
                         syntaxHighlightKatex(container);
+                    });
+
+                    // Handle both code and math in a single pass through each message
+                    const codeBlocks = messageBody.querySelectorAll("pre code:not([data-highlighted])");
+                    codeBlocks.forEach((codeBlock) => {
+                        syntaxHighlightCodeBlock(codeBlock);
                     });
                 } else if (hasSeenVisible) {
                     // We've seen visible messages but this one is not visible
