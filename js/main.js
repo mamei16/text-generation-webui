@@ -258,6 +258,8 @@ function syntaxHighlightCodeBlock(block) {
     hljs.highlightElement(block);
     block.setAttribute("data-highlighted", "true");
     block.classList.add("pretty_scrollbar");
+    if (block.scrollTo)
+        block.scrollTop = block.scrollTo;
 }
 
 function syntaxHighlightKatex(container) {
@@ -318,10 +320,15 @@ function doSyntaxHighlighting() {
                                                                         + "blockquote, figcaption, caption, dd, dt");
                     mathContainers.forEach(container => {
                         intersectObserver.observe(container);
-
+                        syntaxHighlightKatex(container);
                         let thinkScrollTimeout;
                         if (container.className === "thinking-title") {
                             thinkingContent = container.parentElement.parentElement.children[1];
+                            if (thinkingContent.scrollTo) {
+                                thinkingContent.scrollTop = thinkingContent.scrollTo;
+                                thinkingContent.scrollTo = undefined;
+                            }
+
                             if (!thinkingContent.hasScrollListener) {
                                 thinkingContent.addEventListener("scroll", throttle(function() {
                                     clearTimeout(thinkScrollTimeout);
@@ -333,8 +340,6 @@ function doSyntaxHighlighting() {
                                 thinkingContent.hasScrollListener = true;
                             }
                         }
-
-                        syntaxHighlightKatex(container);
                     });
 
                     // Handle both code and math in a single pass through each message

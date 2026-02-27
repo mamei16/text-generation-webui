@@ -358,22 +358,22 @@ function handleMorphdomUpdate(data) {
           if (content && blockId && scrollPositions[blockId]) {
             setTimeout(() => {
               if (scrollPositions[blockId].isAtBottom) {
-                content.scrollTop = content.scrollHeight;
+                content.scrollTo = content.scrollHeight;
               } else {
-                content.scrollTop = scrollPositions[blockId].position;
+                content.scrollTo = undefined;
               }
             }, 0);
           }
         }
-        // Restore scroll positions for open code blocks
+        // Restore scroll positions for code blocks
         if (el.tagName && el.tagName === "CODE") {
           const blockIdx = el.idx;
           if (blockIdx !== undefined && codeScrollPositions[blockIdx]) {
             setTimeout(() => {
               if (codeScrollPositions[blockIdx].isAtBottom) {
-                el.scrollTop = el.scrollHeight;
+                el.scrollTo = el.scrollHeight;
               } else {
-                el.scrollTop = codeScrollPositions[blockIdx].position;
+                el.scrollTo = undefined;
               }
             }, 0);
           }
