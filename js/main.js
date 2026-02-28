@@ -253,11 +253,54 @@ const intersectObserver = new IntersectionObserver((entries) => {
     }
 });
 
+// Cache mapping raw to highlighted code paragraphs
+const codeParagraphCache = new Map();
 
 function syntaxHighlightCodeBlock(block) {
-    hljs.highlightElement(block);
-    block.setAttribute("data-highlighted", "true");
+    if (!currentlyGenerating) {
+        hljs.highlightElement(block);
+        block.setAttribute("data-highlighted", "true");
+        lastCodeParagraph = null;
+    }
+    // While generating, highlight only the last paragraph of a code block
+    // and cache all prior paragraphs
+    else {
+        const language = hljs.blockLanguage(block);
+        const highlightedCodeParagraphs = [];
+        const codeParagraphs = block.textContent.split("\n\n");
+        let codeParagraph;
+        for (i = 0; i < codeParagraphs.length; i++) {
+            codeParagraph = codeParagraphs[i];
+            if (codeParagraphCache.has(codeParagraph)) {
+                highlightedCodeParagraphs.push(codeParagraphCache.get(codeParagraph));
+            }
+            else {
+                // For HTML blocks, auto-detect language of each code paragraph
+                if (language === "html" || language === undefined) {
+                    const languageSubset = language === "html" ? ["html", "css", "javascript"] : null;
+                    highlightResult = hljs.highlightAuto(codeParagraph, languageSubset);
+                    // Highlight JS may confuse short JavaScript paragraphs with CSS
+                    if (highlightResult.language === "css"
+                        && highlightResult.secondBest && highlightResult.secondBest.language == "javascript")
+                        highlightedCodeParagraph = highlightResult.secondBest.value;
+                    else
+                        highlightedCodeParagraph = highlightResult.value;
+                }
+                // For all other languages, assume all paragraphs are the same language
+                else
+                    highlightedCodeParagraph = hljs.highlight(codeParagraph, { language, ignoreIllegals: true }).value;
+
+                highlightedCodeParagraphs.push(highlightedCodeParagraph);
+                if (i < (codeParagraphs.length - 1)) {
+                    codeParagraphCache.set(codeParagraph, highlightedCodeParagraph);
+                }
+            }
+        }
+        lastCodeParagraph = codeParagraph;
+        block.innerHTML = highlightedCodeParagraphs.join("\n\n");
+    }
     block.classList.add("pretty_scrollbar");
+    // Scroll to bottom again if scroll position was previously at bottom
     if (block.scrollTo)
         block.scrollTop = block.scrollTo;
 }
