@@ -243,6 +243,42 @@ def convert_to_markdown(string, message_id=None):
     return html_output
 
 
+def wrap_code_block_paragraphs(html_string):
+    """
+    Finds <pre><code> blocks in HTML and wraps each paragraph (delimited by \n\n)
+    with <div> tags.
+
+    Args:
+        html_string (str): The HTML string containing code blocks.
+
+    Returns:
+        str: Modified HTML string with paragraphs in code blocks wrapped in <div> tags.
+    """
+    # Regex pattern to match <pre><code> tags and their content (non-greedy, case-insensitive)
+    pattern = re.compile(r'(<pre[^>]*><code[^>]*>)(.*?)(</code>)', re.DOTALL | re.IGNORECASE)
+
+    def replace_code_block(match):
+        start_tag = match.group(1)
+        content = match.group(2)
+        end_tag = match.group(3)
+
+        # Split content by double newlines
+        paragraphs = content.split('\n\n')
+        wrapped_paragraphs = []
+
+        for para in paragraphs:
+            if para.strip():
+                wrapped_paragraphs.append(f'<div>{para}</div>')
+            else:
+                # Preserve empty paragraphs by including an empty <div>
+                wrapped_paragraphs.append('<div></div>')
+
+        # Rejoin paragraphs with original spacing
+        return start_tag + '\n\n'.join(wrapped_paragraphs) + end_tag
+
+    return pattern.sub(replace_code_block, html_string)
+
+
 def process_markdown_content(string):
     """Process a string through the markdown conversion pipeline."""
     if not string:
@@ -378,6 +414,8 @@ def process_markdown_content(string):
 
     # Unescape backslashes
     html_output = html_output.replace('\\\\', '\\')
+
+    html_output = wrap_code_block_paragraphs(html_output)
 
     return html_output
 

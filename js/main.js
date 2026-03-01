@@ -155,14 +155,6 @@ function throttle(fn, delay) {
     };
 }
 
-targetElement.addEventListener("scroll", throttle(function() {
-    clearTimeout(scrollTimeout);
-    scrollTimeout = setTimeout(() => { // Ensure a final doSyntaxHighlighting() call once scrolling stops
-        doSyntaxHighlighting();
-    }, 150);
-    doSyntaxHighlighting();
-}, 100));
-
 currentlyGenerating = false;
 
 // Create a MutationObserver instance
@@ -180,20 +172,6 @@ const observer = new MutationObserver(function(mutations) {
                 else if (addedNode.matches("p, span, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption,"
                                            + "caption, dd, dt"))
                     syntaxHighlightKatex(addedNode);
-
-                else if (addedNode.matches(".thinking-block")) {
-                    thinkingContent = addedNode.children[1];
-                    if (!thinkingContent.hasScrollListener) {
-                        thinkingContent.addEventListener("scroll", throttle(function() {
-                            clearTimeout(scrollTimeout);
-                            scrollTimeout = setTimeout(() => {   // Ensure a final doSyntaxHighlighting() call once
-                                doSyntaxHighlighting();          // scrolling stops
-                            }, 150);
-                            doSyntaxHighlighting();
-                        }, 100));
-                        thinkingContent.hasScrollListener = true;
-                    }
-                }
             }
         }
     }
@@ -250,35 +228,34 @@ function isElementVisibleOnScreen(element) {
 const intersectObserver = new IntersectionObserver((entries) => {
     for (const entry of entries) {
         entry.target.isVisibleOnScreen = entry.isIntersecting;
+        if (entry.isIntersecting) {
+            if (entry.target.className === "message-body")
+                doSyntaxHighlighting(entry.target);
+            else if (entry.target.matches("pre code:not([data-highlighted])"))
+                syntaxHighlightCodeBlock(entry.target.firstChild);
+            else if (entry.target.matches("p, span, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption,"
+                                       + "caption, dd, dt") && !entry.target.processed)
+                syntaxHighlightKatex(entry.target);
+        }
     }
 });
-
-// Cache mapping raw to highlighted code paragraphs
-const codeParagraphCache = new Map();
 
 function syntaxHighlightCodeBlock(block) {
     if (!currentlyGenerating) {
         hljs.highlightElement(block);
         block.setAttribute("data-highlighted", "true");
-        lastCodeParagraph = null;
     }
-    // While generating, highlight only the last paragraph of a code block
-    // and cache all prior paragraphs
+    // While generating, highlight only the visible paragraph divs of a code block
     else {
         const language = hljs.blockLanguage(block);
-        const highlightedCodeParagraphs = [];
-        const codeParagraphs = block.textContent.split("\n\n");
-        let codeParagraph;
-        for (i = 0; i < codeParagraphs.length; i++) {
-            codeParagraph = codeParagraphs[i];
-            if (codeParagraphCache.has(codeParagraph)) {
-                highlightedCodeParagraphs.push(codeParagraphCache.get(codeParagraph));
-            }
-            else {
+        const codeParagraphDivs = block.querySelectorAll("div");
+        for (div of codeParagraphDivs) {
+            intersectObserver.observe(div);
+            if (isElementVisibleOnScreen(div)) {
                 // For HTML blocks, auto-detect language of each code paragraph
                 if (language === "html" || language === undefined) {
                     const languageSubset = language === "html" ? ["html", "css", "javascript"] : null;
-                    highlightResult = hljs.highlightAuto(codeParagraph, languageSubset);
+                    highlightResult = hljs.highlightAuto(div.textContent, languageSubset);
                     // Highlight JS may confuse short JavaScript paragraphs with CSS
                     if (highlightResult.language === "css"
                         && highlightResult.secondBest && highlightResult.secondBest.language == "javascript")
@@ -288,22 +265,18 @@ function syntaxHighlightCodeBlock(block) {
                 }
                 // For all other languages, assume all paragraphs are the same language
                 else
-                    highlightedCodeParagraph = hljs.highlight(codeParagraph, { language, ignoreIllegals: true }).value;
+                    highlightedCodeParagraph = hljs.highlight(div.textContent, { language, ignoreIllegals: true }).value;
 
-                highlightedCodeParagraphs.push(highlightedCodeParagraph);
-                if (i < (codeParagraphs.length - 1)) {
-                    codeParagraphCache.set(codeParagraph, highlightedCodeParagraph);
-                }
+                div.innerHTML = highlightedCodeParagraph;
             }
         }
-        lastCodeParagraph = codeParagraph;
-        block.innerHTML = highlightedCodeParagraphs.join("\n\n");
     }
     block.classList.add("pretty_scrollbar");
     // Scroll to bottom again if scroll position was previously at bottom
     if (block.scrollTo)
         block.scrollTop = block.scrollTo;
 }
+
 
 function syntaxHighlightKatex(container) {
     const innerHTML = container.innerHTML;
@@ -341,8 +314,8 @@ function syntaxHighlightKatex(container) {
     }
 }
 
-function doSyntaxHighlighting() {
-    const messageBodies = document.getElementById("chat").querySelectorAll(".message-body");
+function doSyntaxHighlighting(targetMessageBody = null) {
+    const messageBodies = targetMessageBody ? [targetMessageBody] : document.getElementById("chat").querySelectorAll(".message-body");
 
     if (messageBodies.length > 0) {
         observer.disconnect();
@@ -370,17 +343,6 @@ function doSyntaxHighlighting() {
                             if (thinkingContent.scrollTo) {
                                 thinkingContent.scrollTop = thinkingContent.scrollTo;
                                 thinkingContent.scrollTo = undefined;
-                            }
-
-                            if (!thinkingContent.hasScrollListener) {
-                                thinkingContent.addEventListener("scroll", throttle(function() {
-                                    clearTimeout(thinkScrollTimeout);
-                                    thinkScrollTimeout = setTimeout(() => { // Ensure a final doSyntaxHighlighting()
-                                        doSyntaxHighlighting();             // call once scrolling stops
-                                    }, 150);
-                                    doSyntaxHighlighting();
-                                }, 100));
-                                thinkingContent.hasScrollListener = true;
                             }
                         }
                     });
