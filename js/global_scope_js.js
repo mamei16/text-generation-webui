@@ -333,6 +333,17 @@ function handleMorphdomUpdate(data) {
           }
         }
 
+        // Preserve highlighted code paragraphs inside code blocks while generating
+        if (!data.forceRender && fromEl.tagName === "DIV" && fromEl.parentElement.tagName === "CODE" && fromEl.textContent === toEl.textContent) {
+          return false;
+        }
+        // Preserve rendered KaTeX in math containers while generating
+        if (!data.forceRender && fromEl.matches("p, span, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption,"
+                                                + "caption, dd, dt") && fromEl.textContent === toEl.textContent) {
+          return false;
+        }
+
+
         // For thinking blocks, assume closed by default
         if (fromEl.classList && fromEl.classList.contains("thinking-block") &&
            toEl.classList && toEl.classList.contains("thinking-block")) {
