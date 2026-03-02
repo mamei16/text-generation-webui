@@ -279,6 +279,11 @@ function syntaxHighlightCodeBlock(block) {
 
 
 function syntaxHighlightKatex(container) {
+
+    // Skip span elements inside code containers
+    if (container.tagName === "SPAN" && (container.parentElement.tagName === "DIV" || container.parentElement.parentElement.tagName === "DIV"))
+        return;
+
     const innerHTML = container.innerHTML;
     if (container.processed && (innerHTML.length !== container.lastLength || innerHTML !== container.lastInnerHTML)) {
         container.processed = false;
