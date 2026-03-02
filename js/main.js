@@ -191,6 +191,10 @@ const observer = new MutationObserver(function(mutations) {
         typing.parentNode.classList.remove("visible-dots");
         document.getElementById("stop").style.display = "none";
         document.getElementById("Generate").style.display = "flex";
+        if (currentlyGenerating) {
+            codeParagraphCache.clear();
+            katexContainerCache
+        }
         currentlyGenerating = false;
     }
 
@@ -240,6 +244,11 @@ const intersectObserver = new IntersectionObserver((entries) => {
     }
 });
 
+
+
+// Cache mapping raw to highlighted code paragraphs
+const codeParagraphCache = new Map();
+
 function syntaxHighlightCodeBlock(block) {
     if (!currentlyGenerating) {
         hljs.highlightElement(block);
@@ -249,25 +258,35 @@ function syntaxHighlightCodeBlock(block) {
     else {
         const language = hljs.blockLanguage(block);
         const codeParagraphDivs = block.querySelectorAll("div");
-        for (div of codeParagraphDivs) {
+        for (i = 0; i < codeParagraphDivs.length; i++) {
+            div = codeParagraphDivs[i];
             intersectObserver.observe(div);
             if (isElementVisibleOnScreen(div)) {
-                // For HTML blocks, auto-detect language of each code paragraph
-                if (language === "html" || language === undefined) {
-                    const languageSubset = language === "html" ? ["html", "css", "javascript"] : null;
-                    highlightResult = hljs.highlightAuto(div.textContent, languageSubset);
-                    // Highlight JS may confuse short JavaScript paragraphs with CSS
-                    if (highlightResult.language === "css"
-                        && highlightResult.secondBest && highlightResult.secondBest.language == "javascript")
-                        highlightedCodeParagraph = highlightResult.secondBest.value;
-                    else
-                        highlightedCodeParagraph = highlightResult.value;
-                }
-                // For all other languages, assume all paragraphs are the same language
-                else
-                    highlightedCodeParagraph = hljs.highlight(div.textContent, { language, ignoreIllegals: true }).value;
+                const textContent = div.textContent;
 
+                if (codeParagraphCache.has(textContent)) {
+                    highlightedCodeParagraph = codeParagraphCache.get(textContent);
+                }
+                else {
+                    // For HTML blocks, auto-detect language of each code paragraph
+                    if (language === "html" || language === undefined) {
+                        const languageSubset = language === "html" ? ["html", "css", "javascript"] : null;
+                        highlightResult = hljs.highlightAuto(textContent, languageSubset);
+                        // Highlight JS may confuse short JavaScript paragraphs with CSS
+                        if (highlightResult.language === "css"
+                            && highlightResult.secondBest && highlightResult.secondBest.language == "javascript")
+                            highlightedCodeParagraph = highlightResult.secondBest.value;
+                        else
+                            highlightedCodeParagraph = highlightResult.value;
+                    }
+                    // For all other languages, assume all paragraphs are the same language
+                    else
+                        highlightedCodeParagraph = hljs.highlight(textContent, { language, ignoreIllegals: true }).value;
+                }
                 div.innerHTML = highlightedCodeParagraph;
+                if (i < (codeParagraphDivs.length - 1)) {
+                    codeParagraphCache.set(textContent, highlightedCodeParagraph);
+                }
             }
         }
     }
@@ -278,11 +297,20 @@ function syntaxHighlightCodeBlock(block) {
 }
 
 
+// Cache mapping raw to rendered KateX HTML
+const katexContainerCache = new Map();
+
+
 function syntaxHighlightKatex(container) {
 
     // Skip span elements inside code containers
     if (container.tagName === "SPAN" && (container.parentElement.tagName === "DIV" || container.parentElement.parentElement.tagName === "DIV"))
         return;
+
+    if (currentlyGenerating && katexContainerCache.has(container.textContent)) {
+        container.innerHTML = katexContainerCache.get(container.textContent);
+        return
+    }
 
     const innerHTML = container.innerHTML;
     if (container.processed && (innerHTML.length !== container.lastLength || innerHTML !== container.lastInnerHTML)) {
@@ -316,6 +344,7 @@ function syntaxHighlightKatex(container) {
         container.lastInnerHTML = newInnerHTML;
         container.lastLength = newInnerHTML.length;
         container.processed = true;
+        return newInnerHTML;
     }
 }
 
@@ -339,10 +368,18 @@ function doSyntaxHighlighting(targetMessageBody = null) {
                     // Only render math in visible elements
                     const mathContainers = messageBody.querySelectorAll("p, span, li, td, th, h1, h2, h3, h4, h5, h6,"
                                                                         + "blockquote, figcaption, caption, dd, dt");
-                    mathContainers.forEach(container => {
+                    for (j = 0; j < mathContainers.length; j++) {
+                        const container = mathContainers[j];
                         intersectObserver.observe(container);
-                        syntaxHighlightKatex(container);
-                        let thinkScrollTimeout;
+                        const textContent = container.textContent;
+                        if (currentlyGenerating && katexContainerCache.has(textContent)) {
+                            container.innerHTML = katexContainerCache.get(textContent);
+                            continue;
+                        }
+                        const newInnerHTML =  syntaxHighlightKatex(container);
+                        if (currentlyGenerating && newInnerHTML && j < (mathContainers.length - 1))
+                            katexContainerCache.set(textContent, newInnerHTML);
+
                         if (container.className === "thinking-title") {
                             thinkingContent = container.parentElement.parentElement.children[1];
                             if (thinkingContent.scrollTo) {
@@ -350,7 +387,8 @@ function doSyntaxHighlighting(targetMessageBody = null) {
                                 thinkingContent.scrollTo = undefined;
                             }
                         }
-                    });
+
+                    }
 
                     // Handle both code and math in a single pass through each message
                     const codeBlocks = messageBody.querySelectorAll("pre code:not([data-highlighted])");
