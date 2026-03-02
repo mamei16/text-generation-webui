@@ -191,9 +191,11 @@ const observer = new MutationObserver(function(mutations) {
         typing.parentNode.classList.remove("visible-dots");
         document.getElementById("stop").style.display = "none";
         document.getElementById("Generate").style.display = "flex";
+
+        // Clear caches once generation stops
         if (currentlyGenerating) {
             codeParagraphCache.clear();
-            katexContainerCache
+            katexContainerCache.clear();
         }
         currentlyGenerating = false;
     }
@@ -244,8 +246,6 @@ const intersectObserver = new IntersectionObserver((entries) => {
     }
 });
 
-
-
 // Cache mapping raw to highlighted code paragraphs
 const codeParagraphCache = new Map();
 
@@ -284,6 +284,8 @@ function syntaxHighlightCodeBlock(block) {
                         highlightedCodeParagraph = hljs.highlight(textContent, { language, ignoreIllegals: true }).value;
                 }
                 div.innerHTML = highlightedCodeParagraph;
+
+                // Add highlighted paragraph to cache if it's not being added to anymore
                 if (i < (codeParagraphDivs.length - 1)) {
                     codeParagraphCache.set(textContent, highlightedCodeParagraph);
                 }
@@ -297,9 +299,8 @@ function syntaxHighlightCodeBlock(block) {
 }
 
 
-// Cache mapping raw to rendered KateX HTML
+// Cache mapping raw to rendered KaTeX HTML
 const katexContainerCache = new Map();
-
 
 function syntaxHighlightKatex(container) {
 
@@ -376,7 +377,9 @@ function doSyntaxHighlighting(targetMessageBody = null) {
                             container.innerHTML = katexContainerCache.get(textContent);
                             continue;
                         }
+
                         const newInnerHTML =  syntaxHighlightKatex(container);
+                        // Add rendered KaTeX HTML to cache if container is not being added to anymore
                         if (currentlyGenerating && newInnerHTML && j < (mathContainers.length - 1))
                             katexContainerCache.set(textContent, newInnerHTML);
 
