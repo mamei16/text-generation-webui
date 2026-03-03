@@ -160,7 +160,7 @@ def create_event_handlers():
         update_model_parameters, gradio('interface_state'), None).then(
         partial(load_model_wrapper, autoload=True), gradio('model_menu', 'loader'), gradio('model_status'), show_progress=True).success(
         handle_load_model_event_final, gradio('truncation_length', 'loader', 'interface_state'), gradio('truncation_length', 'filter_by_loader'), show_progress=False).then(
-        update_parameter_preset, gradio('default_param_preset', 'preset_menu'), gradio('preset_menu'))
+        update_parameter_preset, gradio('default_param_preset', 'preset_menu'), gradio('preset_menu')).then(show_model_load_popup, gradio("model_status"), None, None)
 
     shared.gradio['unload_model'].click(handle_unload_model_click, None, gradio('model_status'), show_progress=False).then(
         partial(update_gpu_layers_and_vram, auto_adjust=True), gradio('loader', 'model_menu', 'gpu_layers', 'ctx_size', 'cache_type'), gradio('vram_info', 'gpu_layers'), show_progress=False)
@@ -417,6 +417,9 @@ def update_parameter_preset(default_preset, current_preset):
             return current_preset
     else:
         return current_preset
+
+def show_model_load_popup(model_load_result):
+        gr.Info(model_load_result, duration=3)
 
 
 def handle_load_model_event_initial(model, state):
