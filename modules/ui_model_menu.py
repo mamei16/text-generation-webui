@@ -419,6 +419,9 @@ def update_parameter_preset(default_preset, current_preset):
         return current_preset
 
 def show_model_load_popup(model_load_result):
+    if model_load_result.startswith("Failed"):
+        gr.Warning(model_load_result, duration=3)
+    else:
         gr.Info(model_load_result, duration=3)
 
 
