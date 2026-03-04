@@ -615,7 +615,7 @@ def actions_html(history, i, role, info_message=""):
 
 def generate_instruct_html(history, last_message_only=False):
     if not last_message_only:
-        output = f'<style>{instruct_css}</style><div class="chat" id="chat" data-mode="instruct"><div class="messages">'
+        output = f'<style>{instruct_css}</style><div class="chat" id="chat" data-mode="instruct"><div id="chat-messages" class="messages">'
     else:
         output = ""
 
