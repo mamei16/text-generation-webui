@@ -353,7 +353,7 @@ def process_markdown_content(string):
     is_latex = False
 
     for line in string.split('\n'):
-        stripped_line = line.strip()
+        stripped_line = line.lstrip(">").strip()
 
         if stripped_line.startswith('```'):
             is_code = not is_code
