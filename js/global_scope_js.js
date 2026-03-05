@@ -264,12 +264,199 @@ if (!window.gradio_config.auth_required) {
     });
 }
 
+let currentlyGenerating;
+
+function isElementVisibleOnScreen(element) {
+    if (element.isVisibleOnScreen === undefined) {
+        const rect = element.getBoundingClientRect();
+        return (
+            rect.left < window.innerWidth &&
+            rect.right > 0 &&
+            rect.top < window.innerHeight &&
+            rect.bottom > 0
+        );
+    } else {
+        return element.isVisibleOnScreen;
+    }
+}
+
+const intersectObserver = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+        entry.target.isVisibleOnScreen = entry.isIntersecting;
+        if (!currentlyGenerating && entry.isIntersecting) {
+            if (entry.target.className === "message-body")
+                doSyntaxHighlighting(entry.target);
+            else if (entry.target.matches("pre code:not([data-highlighted])"))
+                syntaxHighlightCodeBlock(entry.target);
+            else if (entry.target.matches("p, span, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption,"
+                                       + "caption, dd, dt"))
+                syntaxHighlightKatex(entry.target);
+        }
+    }
+});
+
+function syntaxHighlightCodeBlock(block) {
+    if (!isElementVisibleOnScreen(block)) return;
+
+    if (!currentlyGenerating) {
+        hljs.highlightElement(block);
+        block.setAttribute("data-highlighted", "true");
+    }
+    // While generating, highlight only the code block currently being added to
+    else {
+        const language = hljs.blockLanguage(block);
+        if (language === "no-highlight")
+            return
+
+        const codeParagraphDivs = block.querySelectorAll("div");
+         if (!codeParagraphDivs) {
+            return;
+        }
+
+        // Highlight only the last two code paragraphs
+        for (i = codeParagraphDivs.length - 1; i >= Math.max(0, codeParagraphDivs.length - 2); i--) {
+            const div = codeParagraphDivs[i];
+            if (div.hasAttribute("Skipped")) continue;
+            // Skip highlighting second to last paragraph if its has already been highlighted
+            if (i === codeParagraphDivs.length - 2 && div.querySelector("span")) continue;
+
+            const textContent = div.textContent;
+
+            // For HTML blocks, auto-detect language of each code paragraph
+            if (language === "html" || language === undefined) {
+                const languageSubset = language === "html" ? ["html", "css", "javascript"] : null;
+                highlightResult = hljs.highlightAuto(textContent, languageSubset);
+                // Highlight JS may confuse short JavaScript paragraphs with CSS
+                if (highlightResult.language === "css"
+                    && highlightResult.secondBest && highlightResult.secondBest.language == "javascript")
+                    highlightedCodeParagraph = highlightResult.secondBest.value;
+                else
+                    highlightedCodeParagraph = highlightResult.value;
+            }
+            // For all other languages, assume all paragraphs are the same language
+            else
+                highlightedCodeParagraph = hljs.highlight(textContent, { language, ignoreIllegals: true }).value;
+
+            div.innerHTML = highlightedCodeParagraph;
+        }
+
+    }
+    block.classList.add("pretty_scrollbar");
+    // Scroll to bottom again if scroll position was previously at bottom
+    if (block.shouldScroll) {
+      block.scrollTop = block.scrollTopMax ? block.scrollTopMax : block.scrollHeight;
+      block.shouldScroll = undefined;
+    }
+}
+
+function syntaxHighlightKatex(container) {
+    // Skip span elements inside code containers
+    if (container.tagName === "SPAN"
+        && (container.parentElement && container.parentElement.tagName === "DIV"
+            || container.parentElement.parentElement && container.parentElement.parentElement.tagName === "DIV"))
+        return;
+
+    if (currentlyGenerating || isElementVisibleOnScreen(container)) {
+        container.rawTextContent = container.textContent;
+        if (container.tagName === "LI")
+            container.parentElement.rawTextContent = container.parentElement.textContent;
+        renderMathInElement(container, {
+            delimiters: [{
+                    left: "$$",
+                    right: "$$",
+                    display: true
+                },
+                {
+                    left: "$",
+                    right: "$",
+                    display: false
+                },
+                {
+                    left: "\\(",
+                    right: "\\)",
+                    display: false
+                },
+                {
+                    left: "\\[",
+                    right: "\\]",
+                    display: true
+                },
+            ],
+        });
+    }
+}
+
+function doSyntaxHighlighting(targetMessageBody = null) {
+    const messageBodies = targetMessageBody ? [targetMessageBody] : document.getElementById("chat").querySelectorAll(".message-body");
+
+    if (messageBodies.length > 0) {
+        observer.disconnect();
+        hasSeenVisible = false;
+
+        // Go from last message to first
+        for (let i = messageBodies.length - 1; i >= 0; i--) {
+            const messageBody = messageBodies[i];
+
+            intersectObserver.observe(messageBody);
+
+            if (isElementVisibleOnScreen(messageBody)) {
+                hasSeenVisible = true;
+
+                // Only render math in direct descendants of messageBody (not, e.g., in thinking-/code blocks)
+                //const mathContainers = messageBody.querySelectorAll("p, ol, ul, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption,"
+                //                  + "caption, dd, dt")
+                const mathContainers = messageBody.querySelectorAll(":scope > p, :scope > ol, :scope > ul, :scope > td, "
+                                                                    + ":scope > th, :scope > h1, :scope > h2, :scope > h3, :scope > h4, :scope > h5, :scope > h6, "
+                                                                    + ":scope > blockquote, :scope > figcaption, :scope > caption, :scope > dd, :scope > dt");
+                if (!mathContainers)
+                    continue;
+
+                if (currentlyGenerating) {
+                    for (j = mathContainers.length - 1; j >= 0; j--) {
+                        container = mathContainers[j];
+                        if (!container.hasAttribute("Skipping"))
+                          syntaxHighlightKatex(container);
+                    }
+
+                    const thinkingBlocks = messageBody.querySelectorAll("details");
+                    thinkingBlocks.forEach(block => {
+                      thinkingContent = block.children[1];
+                      if (thinkingContent.shouldScroll) {
+                          thinkingContent.scrollTop = thinkingContent.scrollTopMax ? thinkingContent.scrollTopMax : thinkingContent.scrollHeight;
+                          thinkingContent.shouldScroll = undefined;
+                      }
+                    });
+                }
+                else {
+                    mathContainers.forEach(container => {
+                        intersectObserver.observe(container);
+                        syntaxHighlightKatex(container);
+                    });
+                }
+
+                // Handle both code and math in a single pass through each message
+                const codeBlocks = messageBody.querySelectorAll("pre code:not([data-highlighted])");
+                codeBlocks.forEach((codeBlock) => {
+                    intersectObserver.observe(codeBlock);
+                    syntaxHighlightCodeBlock(codeBlock);
+                });
+            } else if (hasSeenVisible) {
+                // We've seen visible messages but this one is not visible
+                // Since we're going from last to first, we can break
+                break;
+            }
+        }
+    }
+}
 
 function handleMorphdomUpdate(data) {
+
+  currentlyGenerating = !data.forceRender;
+
   // Determine target element and use it as query scope
   var target_element, target_html;
   if (data.last_message_only) {
-    const childNodes = document.getElementsByClassName("messages")[0].childNodes;
+    const childNodes = document.getElementById("chat-messages").childNodes;
     target_element = childNodes[childNodes.length - 2];
     target_html = data.html;
   } else {
@@ -295,9 +482,13 @@ function handleMorphdomUpdate(data) {
     const content = block.querySelector(".thinking-content");
     const blockId = block.getAttribute("data-block-id");
     if (content && blockId) {
-      const isAtBottom = Math.abs((content.scrollHeight - content.scrollTop) - content.clientHeight) < 5;
+      const scrollHeight = content.scrollHeight;
+      if (content.scrollTopMax)
+        isAtBottom = (content.scrollTopMax - content.scrollTop) < 5;
+      else
+        isAtBottom = (content.scrollHeight - content.clientHeight - content.scrollTop) < 5;
       scrollPositions[blockId] = {
-        position: content.scrollTop,
+        scrollHeight: scrollHeight,
         isAtBottom: isAtBottom
       };
     }
@@ -308,7 +499,11 @@ function handleMorphdomUpdate(data) {
   codeBlockIdx = 0;
   queryScope.querySelectorAll("code").forEach(block => {
     block.idx = codeBlockIdx;
-    const isAtBottom = Math.abs((block.scrollHeight - block.scrollTop) - block.clientHeight) < 5;
+    const scrollHeight = block.scrollHeight;
+    if (block.scrollTopMax)
+      isAtBottom = (block.scrollTopMax - block.scrollTop) < 5;
+    else
+      isAtBottom = (block.scrollHeight - block.clientHeight - block.scrollTop) < 5;
     codeScrollPositions.push({
       position: block.scrollTop,
       isAtBottom: isAtBottom
@@ -334,15 +529,31 @@ function handleMorphdomUpdate(data) {
         }
 
         // Preserve highlighted code paragraphs inside code blocks while generating
-        if (!data.forceRender && fromEl.tagName === "DIV" && fromEl.parentElement.tagName === "CODE" && fromEl.textContent === toEl.textContent) {
-          return false;
-        }
-        // Preserve rendered KaTeX in math containers while generating
-        if (!data.forceRender && fromEl.matches("p, span, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption,"
-                                                + "caption, dd, dt") && fromEl.textContent === toEl.textContent) {
-          return false;
+        if (!data.forceRender && fromEl.tagName === "DIV" && fromEl.parentElement.tagName === "CODE") {
+
+
+          const toTextContent = toEl.textContent
+          if (fromEl.textContent === toTextContent) {
+            return false;
+          }
         }
 
+        // Preserve rendered KaTeX in math containers while generating
+        if (!data.forceRender && fromEl.matches("p, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption,"
+                                                + "caption, dd, dt, div, ol, ul")) {
+          const toTextContentTrimmed = toEl.textContent.trim();
+
+          if (!toTextContentTrimmed || (fromEl.rawTextContent && fromEl.rawTextContent.trim().replace("\n", "") === toTextContentTrimmed.replace("\n", "")))
+          {
+            fromEl.setAttribute("Skipping", true);
+            return false;
+          }
+
+        }
+
+        if (data.forceRender && fromEl.matches("p, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption,"
+                                                + "caption, dd, dt, ol, ul"))
+          fromEl.rawTextContent = null;
 
         // For thinking blocks, assume closed by default
         if (fromEl.classList && fromEl.classList.contains("thinking-block") &&
@@ -368,8 +579,9 @@ function handleMorphdomUpdate(data) {
 
           if (content && blockId && scrollPositions[blockId]) {
             setTimeout(() => {
-              if (scrollPositions[blockId].isAtBottom) {
-                content.scrollTo = content.scrollHeight;
+              scrollHeight = content.scrollHeight;
+              if (scrollPositions[blockId].isAtBottom && (scrollHeight > scrollPositions[blockId].scrollHeight)) {
+                content.shouldScroll = true;;
               } else {
                 content.scrollTo = undefined;
               }
@@ -382,7 +594,7 @@ function handleMorphdomUpdate(data) {
           if (blockIdx !== undefined && codeScrollPositions[blockIdx]) {
             setTimeout(() => {
               if (codeScrollPositions[blockIdx].isAtBottom) {
-                el.scrollTo = el.scrollHeight;
+                el.shouldScroll = true;
               } else {
                 el.scrollTo = undefined;
               }
@@ -409,6 +621,8 @@ function handleMorphdomUpdate(data) {
       block._hasToggleListener = true;
     }
   });
+
+  doSyntaxHighlighting();
 }
 
 // Wait for Gradio to finish setting its styles, then force dark theme

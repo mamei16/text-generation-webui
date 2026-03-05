@@ -325,7 +325,6 @@ audio {
 /* ----------------------------------------------
   Chat tab
 ---------------------------------------------- */
-
 #scrollAnchor {
   overflow-anchor: auto;
   /* Ensure element is not collapsed */
@@ -570,10 +569,14 @@ div.svelte-362y77>*, div.svelte-362y77>.form>* {
     contain: layout;
 }
 
-/* Only show horizontal code block scrollbar on hover.
-   Attempt to fix bug where having horizontal scrollbar visible
-   pushes scrollAnchor out of view
-*/
+/* Make distance between div code paragraphs appear the same
+ * as between regular code paragraphs after hljs.highlightElement
+ */
+.message-body pre > code > div:not(:first-child) {
+    margin-top: -18.5px;
+}
+
+/* Only show horizontal code block scrollbar on hover. */
 .message-body pre:hover > code {
   overflow-x: auto !important;
 }
@@ -1393,8 +1396,13 @@ div.svelte-362y77>*, div.svelte-362y77>.form>* {
     line-height: 1.5;
     overflow-wrap: break-word;
     max-height: 250px;
-    overflow-y: scroll;
+    overflow-y: hidden !important;
     contain: layout;
+    scrollbar-gutter: stable;
+}
+
+.thinking-content:hover {
+  overflow-y: auto !important;
 }
 
 .chat .message-body .thinking-content p,
