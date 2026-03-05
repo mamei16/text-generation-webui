@@ -138,43 +138,11 @@ typingSibling.insertBefore(typing, typingSibling.childNodes[2]);
 //------------------------------------------------
 // Chat scrolling
 //------------------------------------------------
-const targetElement = document.getElementById("chat").parentNode.parentNode.parentNode;
+targetElement = document.getElementById("chat").parentNode.parentNode.parentNode;
 targetElement.classList.add("pretty_scrollbar");
 targetElement.classList.add("chat-parent");
 
-isCurrentlyGenerating = false;
-
-// Create a MutationObserver instance
-const observer = new MutationObserver(function(mutations) {
-    if (targetElement.classList.contains("_generating")) {
-        typing.parentNode.classList.add("visible-dots");
-        document.getElementById("stop").style.display = "flex";
-        document.getElementById("Generate").style.display = "none";
-        if (!isCurrentlyGenerating) {
-            isCurrentlyGenerating = true;
-            // Scroll to bottom after submitting a new message
-            setTimeout(() => {
-                targetElement.scrollBy(0, 2**30);
-            }, 200);
-        }
-    } else {
-        typing.parentNode.classList.remove("visible-dots");
-        document.getElementById("stop").style.display = "none";
-        document.getElementById("Generate").style.display = "flex";
-        isCurrentlyGenerating = false;
-    }
-});
-
-// Configure the observer to watch for changes in the subtree and attributes
-const config = {
-    childList: true,
-    subtree: true,
-    characterData: true,
-    attributeFilter: ['class']
-};
-
-// Start observing the target element
-observer.observe(targetElement, config);
+mutationObserver.observe(targetElement, config);
 
 //------------------------------------------------
 // Add some scrollbars

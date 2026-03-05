@@ -266,6 +266,41 @@ if (!window.gradio_config.auth_required) {
 
 let currentlyGenerating;
 
+// Only used in mutationObserver
+let isCurrentlyGenerating = false;
+
+let targetElement;
+
+// Create a MutationObserver instance
+const mutationObserver = new MutationObserver(function() {
+    if (targetElement.classList.contains("_generating")) {
+        typing.parentNode.classList.add("visible-dots");
+        document.getElementById("stop").style.display = "flex";
+        document.getElementById("Generate").style.display = "none";
+        if (!isCurrentlyGenerating) {
+            isCurrentlyGenerating = true;
+            // Scroll to bottom after submitting a new message
+            setTimeout(() => {
+                targetElement.scrollBy(0, 2**30);
+            }, 200);
+        }
+    } else {
+        typing.parentNode.classList.remove("visible-dots");
+        document.getElementById("stop").style.display = "none";
+        document.getElementById("Generate").style.display = "flex";
+        isCurrentlyGenerating = false;
+    }
+});
+
+// Configure the observer to watch for changes in the subtree and attributes
+const config = {
+    childList: true,
+    subtree: true,
+    characterData: true,
+    attributeFilter: ['class']
+};
+
+
 function isElementVisibleOnScreen(element) {
     if (element.isVisibleOnScreen === undefined) {
         const rect = element.getBoundingClientRect();
@@ -281,6 +316,7 @@ function isElementVisibleOnScreen(element) {
 }
 
 const intersectObserver = new IntersectionObserver((entries) => {
+    mutationObserver.disconnect();
     for (const entry of entries) {
         entry.target.isVisibleOnScreen = entry.isIntersecting;
         if (!currentlyGenerating && entry.isIntersecting) {
@@ -293,6 +329,7 @@ const intersectObserver = new IntersectionObserver((entries) => {
                 syntaxHighlightKatex(entry.target);
         }
     }
+    mutationObserver.observe(targetElement, config);
 });
 
 function syntaxHighlightCodeBlock(block) {
@@ -318,7 +355,7 @@ function syntaxHighlightCodeBlock(block) {
             const div = codeParagraphDivs[i];
             if (div.hasAttribute("Skipped")) continue;
             // Skip highlighting second to last paragraph if its has already been highlighted
-            if (i === codeParagraphDivs.length - 2 && div.querySelector("span")) continue;
+            if (i === codeParagraphDivs.length - 2 && div.querySelector("span")) break;
 
             const textContent = div.textContent;
 
@@ -358,8 +395,6 @@ function syntaxHighlightKatex(container) {
 
     if (currentlyGenerating || isElementVisibleOnScreen(container)) {
         container.rawTextContent = container.textContent;
-        if (container.tagName === "LI")
-            container.parentElement.rawTextContent = container.parentElement.textContent;
         renderMathInElement(container, {
             delimiters: [{
                     left: "$$",
@@ -390,61 +425,75 @@ function doSyntaxHighlighting(targetMessageBody = null) {
     const messageBodies = targetMessageBody ? [targetMessageBody] : document.getElementById("chat").querySelectorAll(".message-body");
 
     if (messageBodies.length > 0) {
-        observer.disconnect();
-        hasSeenVisible = false;
+        mutationObserver.disconnect();
+        try {
+          hasSeenVisible = false;
 
-        // Go from last message to first
-        for (let i = messageBodies.length - 1; i >= 0; i--) {
-            const messageBody = messageBodies[i];
+          // Go from last message to first
+          for (let i = messageBodies.length - 1; i >= 0; i--) {
+              const messageBody = messageBodies[i];
 
-            intersectObserver.observe(messageBody);
+              intersectObserver.observe(messageBody);
 
-            if (isElementVisibleOnScreen(messageBody)) {
-                hasSeenVisible = true;
+              if (isElementVisibleOnScreen(messageBody)) {
+                  hasSeenVisible = true;
 
-                // Only render math in direct descendants of messageBody (not, e.g., in thinking-/code blocks)
-                //const mathContainers = messageBody.querySelectorAll("p, ol, ul, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption,"
-                //                  + "caption, dd, dt")
-                const mathContainers = messageBody.querySelectorAll(":scope > p, :scope > ol, :scope > ul, :scope > td, "
-                                                                    + ":scope > th, :scope > h1, :scope > h2, :scope > h3, :scope > h4, :scope > h5, :scope > h6, "
-                                                                    + ":scope > blockquote, :scope > figcaption, :scope > caption, :scope > dd, :scope > dt");
-                if (!mathContainers)
-                    continue;
 
-                if (currentlyGenerating) {
-                    for (j = mathContainers.length - 1; j >= 0; j--) {
-                        container = mathContainers[j];
-                        if (!container.hasAttribute("Skipping"))
+                  //const mathContainers = messageBody.querySelectorAll("p, ol, ul, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption,"
+                  //                  + "caption, dd, dt")
+
+                  // Only render math in direct descendants of messageBody (not, e.g., in thinking-/code blocks)
+                  selectorString = ":scope > p, :scope > td, "
+                                 + ":scope > th, :scope > h1, :scope > h2, :scope > h3, :scope > h4, :scope > h5, :scope > h6, "
+                                 + ":scope > blockquote, :scope > figcaption, :scope > caption, :scope > dd, :scope > dt"
+                  // TODO: this is necessary to ensure morphdom doesn't invalidate rendered (nested) lists
+                  if (currentlyGenerating)
+                    selectorString += ", :scope > ol, :scope > ul"
+                  else
+                    selectorString += ", li"
+                  const mathContainers = messageBody.querySelectorAll(selectorString);
+                  if (!mathContainers)
+                      continue;
+
+                  if (currentlyGenerating) {
+                      for (j = mathContainers.length - 1; j >= 0; j--) {
+                          container = mathContainers[j];
+                          if (container.hasAttribute("Skipping"))
+                            continue;
+
                           syntaxHighlightKatex(container);
-                    }
-
-                    const thinkingBlocks = messageBody.querySelectorAll("details");
-                    thinkingBlocks.forEach(block => {
-                      thinkingContent = block.children[1];
-                      if (thinkingContent.shouldScroll) {
-                          thinkingContent.scrollTop = thinkingContent.scrollTopMax ? thinkingContent.scrollTopMax : thinkingContent.scrollHeight;
-                          thinkingContent.shouldScroll = undefined;
                       }
-                    });
-                }
-                else {
-                    mathContainers.forEach(container => {
-                        intersectObserver.observe(container);
-                        syntaxHighlightKatex(container);
-                    });
-                }
 
-                // Handle both code and math in a single pass through each message
-                const codeBlocks = messageBody.querySelectorAll("pre code:not([data-highlighted])");
-                codeBlocks.forEach((codeBlock) => {
-                    intersectObserver.observe(codeBlock);
-                    syntaxHighlightCodeBlock(codeBlock);
-                });
-            } else if (hasSeenVisible) {
-                // We've seen visible messages but this one is not visible
-                // Since we're going from last to first, we can break
-                break;
-            }
+                      const thinkingBlocks = messageBody.querySelectorAll("details");
+                      thinkingBlocks.forEach(block => {
+                        thinkingContent = block.children[1];
+                        if (thinkingContent.shouldScroll) {
+                            thinkingContent.scrollTop = thinkingContent.scrollTopMax ? thinkingContent.scrollTopMax : thinkingContent.scrollHeight;
+                            thinkingContent.shouldScroll = undefined;
+                        }
+                      });
+                  }
+                  else {
+                      mathContainers.forEach(container => {
+                          intersectObserver.observe(container);
+                          syntaxHighlightKatex(container);
+                      });
+                  }
+
+                  // Handle both code and math in a single pass through each message
+                  const codeBlocks = messageBody.querySelectorAll("pre code:not([data-highlighted])");
+                  codeBlocks.forEach((codeBlock) => {
+                      intersectObserver.observe(codeBlock);
+                      syntaxHighlightCodeBlock(codeBlock);
+                  });
+              } else if (hasSeenVisible) {
+                  // We've seen visible messages but this one is not visible
+                  // Since we're going from last to first, we can break
+                  break;
+              }
+          }
+        } finally {
+            mutationObserver.observe(targetElement, config);
         }
     }
 }
@@ -621,8 +670,9 @@ function handleMorphdomUpdate(data) {
       block._hasToggleListener = true;
     }
   });
-
+  mutationObserver.disconnect();
   doSyntaxHighlighting();
+  mutationObserver.observe(targetElement, config);
 }
 
 // Wait for Gradio to finish setting its styles, then force dark theme
