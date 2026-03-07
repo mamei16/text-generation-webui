@@ -39,6 +39,15 @@ document.querySelector(".header_bar").addEventListener("click", function(event) 
 });
 
 //------------------------------------------------
+// Context progress bar
+//------------------------------------------------
+var chatInputContainer = document.getElementById("chat-input-container");
+chatInputContainer.insertAdjacentHTML("beforeend", '<div class="progress-container-container"><div class="progress-container"><div class="progress-bar"></div></div></div>');
+document.querySelector('.progress-container-container').style.marginTop = "-15px";
+// Avoid dead space at the bottom of the chat tab
+document.getElementById("chat-tab").style.marginBottom = "-80px";
+
+//------------------------------------------------
 // Keyboard shortcuts
 //------------------------------------------------
 
@@ -138,236 +147,11 @@ typingSibling.insertBefore(typing, typingSibling.childNodes[2]);
 //------------------------------------------------
 // Chat scrolling
 //------------------------------------------------
-const targetElement = document.getElementById("chat").parentNode.parentNode.parentNode;
+targetElement = document.getElementById("chat").parentNode.parentNode.parentNode;
 targetElement.classList.add("pretty_scrollbar");
 targetElement.classList.add("chat-parent");
-let scrollTimeout;
-let thinkScrollTimeout;
 
-function throttle(fn, delay) {
-    let lastCall = 0;
-    return function(...args) {
-        const now = Date.now();
-        if (now - lastCall >= delay) {
-            lastCall = now;
-            fn.apply(this, args);
-        }
-    };
-}
-
-currentlyGenerating = false;
-
-// Create a MutationObserver instance
-const observer = new MutationObserver(function(mutations) {
-    if (!currentlyGenerating) {
-        for (var mutation of mutations) {
-            if (mutation.target.processed !== undefined) mutation.target.processed = false;
-
-            for (addedNode of mutation.addedNodes) {
-                if (addedNode.nodeType === 3) continue; // Skip text nodes
-                addedNode.processed = false;
-                if (addedNode.matches("pre"))
-                    syntaxHighlightCodeBlock(addedNode.firstChild);
-
-                else if (addedNode.matches("p, span, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption,"
-                                           + "caption, dd, dt"))
-                    syntaxHighlightKatex(addedNode);
-            }
-        }
-    }
-
-    if (targetElement.classList.contains("_generating")) {
-        typing.parentNode.classList.add("visible-dots");
-        document.getElementById("stop").style.display = "flex";
-        document.getElementById("Generate").style.display = "none";
-        if (!currentlyGenerating) {
-            currentlyGenerating = true;
-            // Scroll to bottom after submitting a new message
-            setTimeout(() => {
-                targetElement.scrollBy(0, 99999);
-            }, 200);
-        }
-    } else {
-        typing.parentNode.classList.remove("visible-dots");
-        document.getElementById("stop").style.display = "none";
-        document.getElementById("Generate").style.display = "flex";
-        currentlyGenerating = false;
-    }
-
-    doSyntaxHighlighting();
-});
-
-// Configure the observer to watch for changes in the subtree and attributes
-const config = {
-    childList: true,
-    subtree: true,
-    characterData: true,
-    attributeFilter: ['class']
-};
-
-// Start observing the target element
-observer.observe(targetElement, config);
-
-//------------------------------------------------
-// Handle syntax highlighting / LaTeX
-//------------------------------------------------
-function isElementVisibleOnScreen(element) {
-    if (element.isVisibleOnScreen === undefined) {
-        const rect = element.getBoundingClientRect();
-        return (
-            rect.left < window.innerWidth &&
-            rect.right > 0 &&
-            rect.top < window.innerHeight &&
-            rect.bottom > 0
-        );
-    } else {
-        return element.isVisibleOnScreen;
-    }
-}
-
-const intersectObserver = new IntersectionObserver((entries) => {
-    for (const entry of entries) {
-        entry.target.isVisibleOnScreen = entry.isIntersecting;
-        if (entry.isIntersecting) {
-            if (entry.target.className === "message-body")
-                doSyntaxHighlighting(entry.target);
-            else if (entry.target.matches("pre code:not([data-highlighted])"))
-                syntaxHighlightCodeBlock(entry.target.firstChild);
-            else if (entry.target.matches("p, span, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, figcaption,"
-                                       + "caption, dd, dt") && !entry.target.processed)
-                syntaxHighlightKatex(entry.target);
-        }
-    }
-});
-
-function syntaxHighlightCodeBlock(block) {
-    if (!currentlyGenerating) {
-        hljs.highlightElement(block);
-        block.setAttribute("data-highlighted", "true");
-    }
-    // While generating, highlight only the visible paragraph divs of a code block
-    else {
-        const language = hljs.blockLanguage(block);
-        const codeParagraphDivs = block.querySelectorAll("div");
-        for (div of codeParagraphDivs) {
-            intersectObserver.observe(div);
-            if (isElementVisibleOnScreen(div)) {
-                // For HTML blocks, auto-detect language of each code paragraph
-                if (language === "html" || language === undefined) {
-                    const languageSubset = language === "html" ? ["html", "css", "javascript"] : null;
-                    highlightResult = hljs.highlightAuto(div.textContent, languageSubset);
-                    // Highlight JS may confuse short JavaScript paragraphs with CSS
-                    if (highlightResult.language === "css"
-                        && highlightResult.secondBest && highlightResult.secondBest.language == "javascript")
-                        highlightedCodeParagraph = highlightResult.secondBest.value;
-                    else
-                        highlightedCodeParagraph = highlightResult.value;
-                }
-                // For all other languages, assume all paragraphs are the same language
-                else
-                    highlightedCodeParagraph = hljs.highlight(div.textContent, { language, ignoreIllegals: true }).value;
-
-                div.innerHTML = highlightedCodeParagraph;
-            }
-        }
-    }
-    block.classList.add("pretty_scrollbar");
-    // Scroll to bottom again if scroll position was previously at bottom
-    if (block.scrollTo)
-        block.scrollTop = block.scrollTo;
-}
-
-
-function syntaxHighlightKatex(container) {
-
-    // Skip span elements inside code containers
-    if (container.tagName === "SPAN" && (container.parentElement.tagName === "DIV" || container.parentElement.parentElement.tagName === "DIV"))
-        return;
-
-    const innerHTML = container.innerHTML;
-    if (container.processed && (innerHTML.length !== container.lastLength || innerHTML !== container.lastInnerHTML)) {
-        container.processed = false;
-    }
-    if (isElementVisibleOnScreen(container) && (!container.processed)) {
-        renderMathInElement(container, {
-            delimiters: [{
-                    left: "$$",
-                    right: "$$",
-                    display: true
-                },
-                {
-                    left: "$",
-                    right: "$",
-                    display: false
-                },
-                {
-                    left: "\\(",
-                    right: "\\)",
-                    display: false
-                },
-                {
-                    left: "\\[",
-                    right: "\\]",
-                    display: true
-                },
-            ],
-        });
-        const newInnerHTML = container.innerHTML;
-        container.lastInnerHTML = newInnerHTML;
-        container.lastLength = newInnerHTML.length;
-        container.processed = true;
-    }
-}
-
-function doSyntaxHighlighting(targetMessageBody = null) {
-    const messageBodies = targetMessageBody ? [targetMessageBody] : document.getElementById("chat").querySelectorAll(".message-body");
-
-    if (messageBodies.length > 0) {
-        observer.disconnect();
-        try {
-            hasSeenVisible = false;
-
-            // Go from last message to first
-            for (let i = messageBodies.length - 1; i >= 0; i--) {
-                const messageBody = messageBodies[i];
-
-                intersectObserver.observe(messageBody);
-
-                if (isElementVisibleOnScreen(messageBody)) {
-                    hasSeenVisible = true;
-
-                    // Only render math in visible elements
-                    const mathContainers = messageBody.querySelectorAll("p, span, li, td, th, h1, h2, h3, h4, h5, h6,"
-                                                                        + "blockquote, figcaption, caption, dd, dt");
-                    mathContainers.forEach(container => {
-                        intersectObserver.observe(container);
-                        syntaxHighlightKatex(container);
-                        let thinkScrollTimeout;
-                        if (container.className === "thinking-title") {
-                            thinkingContent = container.parentElement.parentElement.children[1];
-                            if (thinkingContent.scrollTo) {
-                                thinkingContent.scrollTop = thinkingContent.scrollTo;
-                                thinkingContent.scrollTo = undefined;
-                            }
-                        }
-                    });
-
-                    // Handle both code and math in a single pass through each message
-                    const codeBlocks = messageBody.querySelectorAll("pre code:not([data-highlighted])");
-                    codeBlocks.forEach((codeBlock) => {
-                        syntaxHighlightCodeBlock(codeBlock);
-                    });
-                } else if (hasSeenVisible) {
-                    // We've seen visible messages but this one is not visible
-                    // Since we're going from last to first, we can break
-                    break;
-                }
-            }
-        } finally {
-            observer.observe(targetElement, config);
-        }
-    }
-}
+mutationObserver.observe(targetElement, config);
 
 //------------------------------------------------
 // Add some scrollbars

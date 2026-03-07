@@ -325,7 +325,6 @@ audio {
 /* ----------------------------------------------
   Chat tab
 ---------------------------------------------- */
-
 #scrollAnchor {
   overflow-anchor: auto;
   /* Ensure element is not collapsed */
@@ -570,10 +569,14 @@ div.svelte-362y77>*, div.svelte-362y77>.form>* {
     contain: layout;
 }
 
-/* Only show horizontal code block scrollbar on hover.
-   Attempt to fix bug where having horizontal scrollbar visible
-   pushes scrollAnchor out of view
-*/
+/* Make distance between div code paragraphs appear the same
+ * as between regular code paragraphs after hljs.highlightElement
+ */
+.message-body pre > code > div:not(:first-child) {
+    margin-top: -18.5px;
+}
+
+/* Only show horizontal code block scrollbar on hover. */
 .message-body pre:hover > code {
   overflow-x: auto !important;
 }
@@ -1393,8 +1396,13 @@ div.svelte-362y77>*, div.svelte-362y77>.form>* {
     line-height: 1.5;
     overflow-wrap: break-word;
     max-height: 250px;
-    overflow-y: scroll;
+    overflow-y: hidden !important;
     contain: layout;
+    scrollbar-gutter: stable;
+}
+
+.thinking-content:hover {
+  overflow-y: auto !important;
 }
 
 .chat .message-body .thinking-content p,
@@ -1701,3 +1709,30 @@ button:focus {
 .dark .sidebar-vertical-separator {
     border-bottom: 1px solid rgb(255 255 255 / 10%);
 }
+
+/* Context progress bar */
+.progress-container-container {
+    position: relative;
+}
+
+.progress-container {
+    width: 95.4%;
+    height: 10px;
+    background-color: #2C2E34;
+    outline-width: 0px;
+    border-radius: 3px;
+    overflow: hidden;
+    position: absolute;
+    outline-style: solid;
+    right: 0;
+}
+
+
+.progress-bar {
+    height: 100%;
+    width: 0%; /* Change this value to adjust the progress */
+    transition: width 0.5s ease;
+    progressContainer.style.backgroundColor = lightGray;
+    progressContainer.style.outlineWidth = "0px";
+}
+
