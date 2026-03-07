@@ -158,12 +158,14 @@ def create_event_handlers():
     shared.gradio['load_model'].click(
         ui.gather_interface_values, gradio(shared.input_elements), gradio('interface_state')).then(
         update_model_parameters, gradio('interface_state'), None).then(
+        update_model_status_indicator, gradio("model_status"), gradio("model_status_indicator"), show_progress=False).then(
         partial(load_model_wrapper, autoload=True), gradio('model_menu', 'loader'), gradio('model_status'), show_progress=True).success(
         handle_load_model_event_final, gradio('truncation_length', 'loader', 'interface_state'), gradio('truncation_length', 'filter_by_loader'), show_progress=False).then(
-        update_parameter_preset, gradio('default_param_preset', 'preset_menu'), gradio('preset_menu')).then(show_model_load_popup, gradio("model_status"), None, None)
+        update_parameter_preset, gradio('default_param_preset', 'preset_menu'), gradio('preset_menu')).then(update_model_status_indicator, gradio("model_status"), gradio("model_status_indicator"), show_progress=False)
 
     shared.gradio['unload_model'].click(handle_unload_model_click, None, gradio('model_status'), show_progress=False).then(
-        partial(update_gpu_layers_and_vram, auto_adjust=True), gradio('loader', 'model_menu', 'gpu_layers', 'ctx_size', 'cache_type'), gradio('vram_info', 'gpu_layers'), show_progress=False)
+        partial(update_gpu_layers_and_vram, auto_adjust=True), gradio('loader', 'model_menu', 'gpu_layers', 'ctx_size', 'cache_type'), gradio('vram_info', 'gpu_layers'), show_progress=False).then(
+        update_model_status_indicator, gradio("model_status"), gradio("model_status_indicator"), show_progress=False)
 
     shared.gradio['save_model_settings'].click(
         ui.gather_interface_values, gradio(shared.input_elements), gradio('interface_state')).then(
@@ -418,11 +420,17 @@ def update_parameter_preset(default_preset, current_preset):
     else:
         return current_preset
 
-def show_model_load_popup(model_load_result):
-    if model_load_result.startswith("Failed"):
-        gr.Warning(model_load_result, duration=3)
+
+def update_model_status_indicator(model_load_result):
+    if model_load_result.startswith("###"):
+        html_string = 'Model status 🔵'
+    elif model_load_result.startswith("Failed"):
+        html_string = 'Model status 🔴'
+    elif model_load_result == "Model unloaded":
+        html_string = 'Model status ⚫'
     else:
-        gr.Info(model_load_result, duration=3)
+        html_string = 'Model status 🟢'
+    return gr.HTML(value=html_string)
 
 
 def handle_load_model_event_initial(model, state):
