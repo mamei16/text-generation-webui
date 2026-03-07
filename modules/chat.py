@@ -995,8 +995,9 @@ def websocket_send(_json, force_render=False):
     main_loop = shared.gradio.get("main_loop")
 
     if main_loop and not main_loop.is_closed():
-        if force_render:
-            _json["forceRender"] = True
+        _json["forceRender"] = force_render
+        if shared.model:
+            _json["contextFillPercentage"] = ((shared.model.tokens_evaluated + shared.model.tokens_predicted) / shared.args.ctx_size) * 100
         # Fire and forget - don't wait for completion
         asyncio.ensure_future(awebsocket_send(_json), loop=main_loop)
     else:
