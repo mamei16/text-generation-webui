@@ -39,6 +39,15 @@ document.querySelector(".header_bar").addEventListener("click", function(event) 
 });
 
 //------------------------------------------------
+// Context progress bar
+//------------------------------------------------
+var chatInputContainer = document.getElementById("chat-input-container");
+chatInputContainer.insertAdjacentHTML("beforeend", '<div class="progress-container-container"><div class="progress-container"><div class="progress-bar"></div></div></div>');
+document.querySelector('.progress-container-container').style.marginTop = "-15px";
+// Avoid dead space at the bottom of the chat tab
+document.getElementById("chat-tab").style.marginBottom = "-80px";
+
+//------------------------------------------------
 // Keyboard shortcuts
 //------------------------------------------------
 

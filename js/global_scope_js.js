@@ -228,6 +228,67 @@ function continueClick() {
 function removeLastClick() {
   document.getElementById("Remove-last").click();
 }
+//////////////////////////////////////////////////////
+//
+// Context progress bar
+//
+//////////////////////////////////////////////////////
+function darkModeEnabled() {
+    var currentCSS = document.getElementById("highlight-css");
+    return currentCSS.getAttribute("href") === "file/css/highlightjs/github-dark.min.css";
+}
+
+
+function getColor(percentage) {
+    if (percentage == 0) return "rgba(0, 0, 0, 0)";
+
+    const bright_colors = [
+        { stop: 0, color: [0, 123, 255] },
+        { stop: 25, color: [0, 255, 0] },
+        { stop: 50, color: [255, 255, 0] },
+        { stop: 75, color: [255, 165, 0] },
+        { stop: 100, color: [255, 0, 0] }
+    ];
+
+    const muted_colors = [
+        { stop: 0, color: [0, 61, 128] },       // Muted blue
+        { stop: 25, color: [0, 128, 0] },       // Muted green
+        { stop: 50, color: [128, 128, 0] },     // Muted yellow
+        { stop: 75, color: [128, 82, 0] },      // Muted orange
+        { stop: 100, color: [128, 0, 0] }       // Muted red
+    ];
+
+    const colors = darkModeEnabled()? muted_colors:bright_colors;
+
+    let startColor, endColor, startStop, endStop;
+    for (let i = 0; i < colors.length - 1; i++) {
+        if (percentage >= colors[i].stop && percentage <= colors[i + 1].stop) {
+            startColor = colors[i].color;
+            endColor = colors[i + 1].color;
+            startStop = colors[i].stop;
+            endStop = colors[i + 1].stop;
+            break;
+        }
+    }
+
+    const ratio = (percentage - startStop) / (endStop - startStop);
+    const r = Math.round(startColor[0] + ratio * (endColor[0] - startColor[0]));
+    const g = Math.round(startColor[1] + ratio * (endColor[1] - startColor[1]));
+    const b = Math.round(startColor[2] + ratio * (endColor[2] - startColor[2]));
+
+    return `rgb(${r}, ${g}, ${b})`;
+}
+
+
+function updateProgressBar(percentage) {
+    if (percentage === undefined) percentage = 0;
+    const progressBar = document.querySelector('.progress-bar');
+    progressBar.style.width = percentage + '%';
+    progressBar.style.backgroundColor = getColor(percentage);
+}
+
+let lastPercentage;
+////////////////////////////////////////////////////////////
 
 function throttle(fn) {
     let rafId = null;
@@ -242,6 +303,8 @@ function throttle(fn) {
             rafId = null; // Clear since we executed
             pendingData = null;
         } else {
+            lastPercentage = data.contextFillPercentage ? data.contextFillPercentage : lastPercentage;
+            updateProgressBar(lastPercentage);
             pendingData = data;
             if (!rafId) {
                 rafId = requestAnimationFrame(() => {

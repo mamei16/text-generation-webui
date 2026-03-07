@@ -1709,3 +1709,30 @@ button:focus {
 .dark .sidebar-vertical-separator {
     border-bottom: 1px solid rgb(255 255 255 / 10%);
 }
+
+/* Context progress bar */
+.progress-container-container {
+    position: relative;
+}
+
+.progress-container {
+    width: 95.4%;
+    height: 10px;
+    background-color: #2C2E34;
+    outline-width: 0px;
+    border-radius: 3px;
+    overflow: hidden;
+    position: absolute;
+    outline-style: solid;
+    right: 0;
+}
+
+
+.progress-bar {
+    height: 100%;
+    width: 0%; /* Change this value to adjust the progress */
+    transition: width 0.5s ease;
+    progressContainer.style.backgroundColor = lightGray;
+    progressContainer.style.outlineWidth = "0px";
+}
+
