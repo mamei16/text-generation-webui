@@ -996,7 +996,7 @@ def websocket_send(_json, force_render=False):
 
     if main_loop and not main_loop.is_closed():
         _json["forceRender"] = force_render
-        if shared.model:
+        if shared.model and hasattr(shared.model, "tokens_evaluated"):
             _json["contextFillPercentage"] = ((shared.model.tokens_evaluated + shared.model.tokens_predicted) / shared.args.ctx_size) * 100
         # Fire and forget - don't wait for completion
         asyncio.ensure_future(awebsocket_send(_json), loop=main_loop)
