@@ -1,11 +1,13 @@
 from typing import Dict, Any, Callable, Optional
 import logging
+from pathlib import Path
 
 import fastapi
 import asyncio
 from fastapi import WebSocket, Depends, status, HTTPException
 import gradio
-from gradio.routes import App
+from gradio.routes import App, safe_join, BUILD_PATH_LIB
+from fastapi.responses import FileResponse
 
 from modules import shared
 
@@ -61,4 +63,18 @@ class WebSocketApp(App):
                     await asyncio.sleep(1)
             except fastapi.WebSocketDisconnect:
                 pass
+
+        @app.get("/assets/{path:path}")
+        def build_resource(path: str):
+            if path.endswith("svelte.js"):
+                # Inject custom svelte.js file
+                return FileResponse(Path("js/svelte.js"))
+            build_file = safe_join(BUILD_PATH_LIB, path)
+            return FileResponse(build_file)
+
+        # Ensure that our 'build_resource' occurs before the original 'build_resource',
+        # so ours will be called instead
+        app.routes.reverse()
+
         return app
+
