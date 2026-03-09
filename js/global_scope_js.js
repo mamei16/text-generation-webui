@@ -328,6 +328,7 @@ if (!window.gradio_config.auth_required) {
 }
 
 let currentlyGenerating;
+let skipUIUpdatesDuringStreaming = true;
 
 // Only used in mutationObserver
 let isCurrentlyGenerating = false;

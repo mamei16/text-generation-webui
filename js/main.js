@@ -38,6 +38,10 @@ document.querySelector(".header_bar").addEventListener("click", function(event) 
     }
 });
 
+document.getElementById("disable-svelte-ui-updates").querySelector("input").addEventListener('change', function() {
+    skipUIUpdatesDuringStreaming = this.checked;
+});
+
 //------------------------------------------------
 // Context progress bar
 //------------------------------------------------

@@ -84,8 +84,13 @@ def create_ui():
 
                 gr.HTML("<div class='sidebar-vertical-separator'></div>")
 
+                disable_svelte_updates = gr.Checkbox(value=True, label='Disable UI updates', info="Only applies while streaming", elem_id="disable-svelte-ui-updates", interactive=True)
+
+                gr.HTML("<div class='sidebar-vertical-separator'></div>")
+
                 with gr.Row():
-                    shared.gradio['mode'] = gr.Radio(choices=['instruct', 'chat-instruct', 'chat'], value=None, label='Mode', info='In instruct and chat-instruct modes, the template under Parameters > Instruction template is used.', elem_id='chat-mode')
+                    with gr.Accordion("Mode", open=False):
+                        shared.gradio['mode'] = gr.Radio(choices=['instruct', 'chat-instruct', 'chat'], value=None, label='', info='In instruct and chat-instruct modes, the template under Parameters > Instruction template is used.', elem_id='chat-mode')
 
                 with gr.Row():
                     shared.gradio['chat_style'] = gr.Dropdown(choices=utils.get_available_chat_styles(), label='Chat style', value=shared.settings['chat_style'], visible=shared.settings['mode'] != 'instruct')

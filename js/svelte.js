@@ -2120,7 +2120,7 @@ function flush() {
 				const component = dirty_components[flushidx];
 				flushidx++;
 				set_current_component(component);
-				if (currentlyGenerating) {
+				if (currentlyGenerating && skipUIUpdatesDuringStreaming) {
 					component.$$.dirty = [-1];
 					continue;
 				}
