@@ -234,6 +234,11 @@ def process_markdown_content(string):
             modified_content = content.replace('*', LATEX_ASTERISK_PLACEHOLDER)
             modified_content = modified_content.replace('_', LATEX_UNDERSCORE_PLACEHOLDER)
             return f'\\({modified_content}\\)'
+        elif match.group(4) is not None:  # Content from $...$
+            content = match.group(4)
+            modified_content = content.replace('*', LATEX_ASTERISK_PLACEHOLDER)
+            modified_content = modified_content.replace('_', LATEX_UNDERSCORE_PLACEHOLDER)
+            return f'${modified_content}$'
 
         return match.group(0)  # Fallback
 
@@ -266,8 +271,8 @@ def process_markdown_content(string):
     string = string.replace('\\end{equation*}', '$$')
     string = re.sub(r"(.)```", r"\1\n```", string)
 
-    # Protect asterisks and underscores within all LaTeX blocks before markdown conversion
-    latex_pattern = re.compile(r'((?:^|[\r\n\s])\$\$[^`]*?\$\$)|\\\[(.*?)\\\]|\\\((.*?)\\\)',
+    # Protect asterisks and underscores within all LaTeX block and inline expressions before markdown conversion
+    latex_pattern = re.compile(r'((?:^|[\r\n\s])\$\$[^`\$]*?\$\$)|\\\[(.*?)\\\]|\\\((.*?)\\\)|(?<![A-Za-z0-9_$-])\$([^\$]*[^ -])\$(?![$0-9])',
                                re.DOTALL)
     string = latex_pattern.sub(protect_asterisks_underscores_in_latex, string)
 
