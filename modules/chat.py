@@ -25,9 +25,11 @@ from modules.extensions import apply_extensions
 from modules.html_generator import (
     chat_html_wrapper,
     convert_to_markdown,
+    extract_thinking_block,
     make_thumbnail
 )
 from modules.logging_colors import logger
+from modules.reasoning import THINKING_FORMATS
 from modules.text_generation import (
     generate_reply,
     get_encoded_length,
@@ -72,6 +74,17 @@ jinja_env = ImmutableSandboxedEnvironment(
 jinja_env.globals["strftime_now"] = strftime_now
 
 
+_template_cache = {}
+def get_compiled_template(template_str):
+    """Cache compiled Jinja2 templates keyed by their source string."""
+    compiled = _template_cache.get(template_str)
+    if compiled is None:
+        compiled = jinja_env.from_string(template_str)
+        _template_cache[template_str] = compiled
+
+    return compiled
+
+
 def str_presenter(dumper, data):
     """
     Copied from https://github.com/yaml/pyyaml/issues/240
@@ -88,6 +101,93 @@ yaml.add_representer(str, str_presenter)
 yaml.representer.SafeRepresenter.add_representer(str, str_presenter)
 
 
+class _JsonDict(dict):
+    """A dict that serializes as JSON when used in string concatenation.
+
+    Some Jinja2 templates (Qwen, GLM) iterate arguments with .items(),
+    requiring a dict.  Others (DeepSeek) concatenate arguments as a
+    string, requiring JSON.  This class satisfies both.
+    """
+
+    def __str__(self):
+        return json.dumps(self, ensure_ascii=False)
+
+    def __add__(self, other):
+        return str(self) + other
+
+    def __radd__(self, other):
+        return other + str(self)
+
+
+def _deserialize_tool_call_arguments(tool_calls):
+    """Convert tool_call arguments from JSON strings to _JsonDict.
+
+    The OpenAI API spec sends arguments as a JSON string, but Jinja2
+    templates may need a dict (.items()) or a string (concatenation).
+    _JsonDict handles both transparently.
+    """
+    result = []
+    for tc in tool_calls:
+        tc = copy.copy(tc)
+        func = tc.get('function', {})
+        if isinstance(func, dict):
+            func = dict(func)
+            args = func.get('arguments')
+            if isinstance(args, str):
+                try:
+                    func['arguments'] = _JsonDict(json.loads(args))
+                except (json.JSONDecodeError, ValueError):
+                    pass
+            elif isinstance(args, dict) and not isinstance(args, _JsonDict):
+                func['arguments'] = _JsonDict(args)
+            tc['function'] = func
+        result.append(tc)
+    return result
+
+
+def _expand_tool_sequence(tool_seq):
+    """Expand a tool_sequence list into API messages.
+
+    Returns a list of dicts (role: assistant with tool_calls, or role: tool).
+    If any tool_call IDs are missing a matching tool result, a synthetic
+    empty result is inserted so the prompt is never malformed.
+    """
+    messages = []
+    expected_ids = []
+    seen_ids = set()
+
+    for item in tool_seq:
+        if 'tool_calls' in item:
+            deserialized = _deserialize_tool_call_arguments(item['tool_calls'])
+            messages.append({
+                "role": "assistant",
+                "content": item.get('content', ''),
+                "tool_calls": deserialized
+            })
+            for tc in item['tool_calls']:
+                tc_id = tc.get('id', '')
+                if tc_id:
+                    expected_ids.append(tc_id)
+        elif item.get('role') == 'tool':
+            messages.append({
+                "role": "tool",
+                "content": item['content'],
+                "tool_call_id": item.get('tool_call_id', '')
+            })
+            seen_ids.add(item.get('tool_call_id', ''))
+
+    # Fill in synthetic results for any orphaned tool call IDs
+    for tc_id in expected_ids:
+        if tc_id not in seen_ids:
+            messages.append({
+                "role": "tool",
+                "content": "",
+                "tool_call_id": tc_id
+            })
+
+    return messages
+
+
 def generate_chat_prompt(user_input, state, **kwargs):
     impersonate = kwargs.get('impersonate', False)
     _continue = kwargs.get('_continue', False)
@@ -101,8 +201,8 @@ def generate_chat_prompt(user_input, state, **kwargs):
     if state['mode'] != 'instruct':
         chat_template_str = replace_character_names(chat_template_str, state['name1'], state['name2'])
 
-    instruction_template = jinja_env.from_string(state['instruction_template_str'])
-    chat_template = jinja_env.from_string(chat_template_str)
+    instruction_template = get_compiled_template(state['instruction_template_str'])
+    chat_template = get_compiled_template(chat_template_str)
 
     instruct_renderer = partial(
         instruction_template.render,
@@ -123,6 +223,7 @@ def generate_chat_prompt(user_input, state, **kwargs):
         name1=state['name1'],
         name2=state['name2'],
         user_bio=replace_character_names(state['user_bio'], state['name1'], state['name2']),
+        tools=state['tools'] if 'tools' in state else None,
     )
 
     messages = []
@@ -142,13 +243,20 @@ def generate_chat_prompt(user_input, state, **kwargs):
         user_msg = entry[0].strip()
         assistant_msg = entry[1].strip()
         tool_msg = entry[2].strip() if len(entry) > 2 else ''
+        entry_meta = entry[3] if len(entry) > 3 else {}
 
         row_idx = len(history) - i - 1
 
         if tool_msg:
-            messages.insert(insert_pos, {"role": "tool", "content": tool_msg})
+            tool_message = {"role": "tool", "content": tool_msg}
+            if "tool_call_id" in entry_meta:
+                tool_message["tool_call_id"] = entry_meta["tool_call_id"]
+            messages.insert(insert_pos, tool_message)
 
-        if assistant_msg:
+        if not assistant_msg and entry_meta.get('tool_calls'):
+            # Assistant message with only tool_calls and no text content
+            messages.insert(insert_pos, {"role": "assistant", "content": "", "tool_calls": _deserialize_tool_call_arguments(entry_meta['tool_calls'])})
+        elif assistant_msg:
             # Handle GPT-OSS as a special case
             if '<|channel|>analysis<|message|>' in assistant_msg or '<|channel|>final<|message|>' in assistant_msg:
                 thinking_content = ""
@@ -223,7 +331,22 @@ def generate_chat_prompt(user_input, state, **kwargs):
                 # Default case (used by all other models)
                 messages.insert(insert_pos, {"role": "assistant", "content": assistant_msg})
 
-        if user_msg not in ['', '<|BEGIN-VISIBLE-CHAT|>']:
+            # Attach tool_calls metadata to the assistant message if present
+            if entry_meta.get('tool_calls') and messages[insert_pos].get('role') == 'assistant':
+                messages[insert_pos]['tool_calls'] = _deserialize_tool_call_arguments(entry_meta['tool_calls'])
+
+        # Expand tool_sequence from metadata (inserted AFTER assistant so that
+        # the final order is: user → tool_calls → tool_results → final_answer)
+        meta_key = f"assistant_{row_idx}"
+        tool_seq = metadata.get(meta_key, {}).get('tool_sequence', [])
+        if tool_seq:
+            for msg in reversed(_expand_tool_sequence(tool_seq)):
+                messages.insert(insert_pos, msg)
+
+        if entry_meta.get('role') == 'system':
+            if user_msg:
+                messages.insert(insert_pos, {"role": "system", "content": user_msg})
+        elif user_msg not in ['', '<|BEGIN-VISIBLE-CHAT|>']:
             # Check for user message attachments in metadata
             user_key = f"user_{row_idx}"
             enhanced_user_msg = user_msg
@@ -291,6 +414,12 @@ def generate_chat_prompt(user_input, state, **kwargs):
                         user_input += f"\n\nATTACHMENTS:\n{attachments_text}"
 
             messages.append({"role": "user", "content": user_input})
+
+        # Expand tool_sequence for the current entry (excluded from the
+        # history loop during regenerate — needed so the model sees prior
+        # tool calls and results when re-generating the final answer).
+        current_tool_seq = metadata.get(f"assistant_{len(history)}", {}).get('tool_sequence', [])
+        messages.extend(_expand_tool_sequence(current_tool_seq))
 
     if impersonate and state['mode'] != 'chat-instruct':
         messages.append({"role": "user", "content": "fake user message replace me"})
@@ -809,7 +938,7 @@ def chatbot_wrapper(text, state, regenerate=False, _continue=False, loading_mess
             }
     else:
         text, visible_text = output['internal'][-1][0], output['visible'][-1][0]
-        if regenerate:
+        if regenerate and not state.get('_tool_turn'):
             row_idx = len(output['internal']) - 1
 
             # Store the old response as a version before regenerating
@@ -872,14 +1001,38 @@ def chatbot_wrapper(text, state, regenerate=False, _continue=False, loading_mess
     # Add timestamp for assistant's response at the start of generation
     update_message_metadata(output['metadata'], "assistant", row_idx, timestamp=get_current_timestamp(), model_name=shared.model_name)
 
+    # Detect if the template appended a thinking start tag to the prompt
+    thinking_prefix = None
+    if not _continue:
+        stripped_prompt = prompt.rstrip('\n')
+        for start_tag, end_tag, content_tag in THINKING_FORMATS:
+            if start_tag is not None and stripped_prompt.endswith(start_tag):
+                thinking_prefix = start_tag
+                break
+
+    # When tools are active, buffer streaming output during potential tool
+    # call generation to prevent raw markup from leaking into the display.
+    _check_tool_markers = bool(state.get('tools'))
+    _last_visible_before_tool_buffer = None
+    if _check_tool_markers:
+        from modules.tool_parsing import streaming_tool_buffer_check, detect_tool_call_format
+        _tool_names = [t['function']['name'] for t in state['tools'] if 'function' in t and 'name' in t['function']]
+        _template_str = state.get('instruction_template_str', '') if state.get('mode') == 'instruct' else state.get('chat_template_str', '')
+        _, _streaming_markers, _check_bare_names = detect_tool_call_format(_template_str)
+
     # Generate
     reply = None
     for j, reply in enumerate(generate_reply(prompt, state, stopping_strings=stopping_strings, is_chat=True, for_ui=for_ui)):
+
+        # Prepend thinking tag if the template appended it to the prompt
+        if thinking_prefix:
+            reply = thinking_prefix + reply
 
         # Extract the reply
         if state['mode'] in ['chat', 'chat-instruct']:
             if not _continue:
                 reply = reply.lstrip()
+
             if reply.startswith(state['name2'] + ':'):
                 reply = reply[len(state['name2'] + ':'):]
             elif reply.startswith(state['name1'] + ':'):
@@ -894,6 +1047,7 @@ def chatbot_wrapper(text, state, regenerate=False, _continue=False, loading_mess
         if shared.stop_everything:
             if not state.get('_skip_output_extensions'):
                 output['visible'][-1][1] = apply_extensions('output', output['visible'][-1][1], state, is_chat=True)
+
             yield output
             return
 
@@ -905,7 +1059,7 @@ def chatbot_wrapper(text, state, regenerate=False, _continue=False, loading_mess
             output['visible'][-1] = [visible_text, visible_reply.lstrip(' ')]
 
         # Keep version metadata in sync during streaming (for regeneration)
-        if regenerate:
+        if regenerate and not state.get('_tool_turn'):
             row_idx = len(output['internal']) - 1
             key = f"assistant_{row_idx}"
             current_idx = output['metadata'][key]['current_version_index']
@@ -915,25 +1069,35 @@ def chatbot_wrapper(text, state, regenerate=False, _continue=False, loading_mess
             })
 
         if is_stream:
+            if _check_tool_markers:
+                if streaming_tool_buffer_check(output['internal'][-1][1], markers=_streaming_markers, tool_names=_tool_names, check_bare_names=_check_bare_names):
+                    continue
+                _last_visible_before_tool_buffer = output['visible'][-1][1]
+
             yield output
 
     if _continue:
-        # Reprocess the entire internal text for extensions (like translation)
-        full_internal = output['internal'][-1][1]
-        if state['mode'] in ['chat', 'chat-instruct']:
-            full_visible = re.sub("(<USER>|<user>|{{user}})", state['name1'], full_internal)
-        else:
-            full_visible = full_internal
+        # Reprocess the entire internal text for extensions (like translation).
+        # Skip entirely when the visible text contains <tool_call> markers,
+        # since those only exist in visible (internal is cleared after each tool
+        # execution) and rebuilding from internal would destroy them. Output
+        # extensions also can't handle the raw <tool_call> markup safely.
+        if '<tool_call>' not in output['visible'][-1][1]:
+            full_internal = output['internal'][-1][1]
+            if state['mode'] in ['chat', 'chat-instruct']:
+                full_visible = re.sub("(<USER>|<user>|{{user}})", state['name1'], full_internal)
+            else:
+                full_visible = full_internal
 
-        full_visible = html.escape(full_visible)
-        if not state.get('_skip_output_extensions'):
-            output['visible'][-1][1] = apply_extensions('output', full_visible, state, is_chat=True)
+            full_visible = html.escape(full_visible)
+            if not state.get('_skip_output_extensions'):
+                output['visible'][-1][1] = apply_extensions('output', full_visible, state, is_chat=True)
     else:
         if not state.get('_skip_output_extensions'):
             output['visible'][-1][1] = apply_extensions('output', output['visible'][-1][1], state, is_chat=True)
 
     # Final sync for version metadata (in case streaming was disabled)
-    if regenerate:
+    if regenerate and not state.get('_tool_turn'):
         row_idx = len(output['internal']) - 1
         key = f"assistant_{row_idx}"
         current_idx = output['metadata'][key]['current_version_index']
@@ -941,6 +1105,13 @@ def chatbot_wrapper(text, state, regenerate=False, _continue=False, loading_mess
             'content': output['internal'][row_idx][1],
             'visible_content': output['visible'][row_idx][1]
         })
+
+    # When tool markers were detected during streaming, restore the last
+    # visible text from before buffering started so raw markup doesn't flash
+    # in the UI.  The internal text is left intact so the caller can still
+    # parse tool calls from it.
+    if is_stream and _check_tool_markers and streaming_tool_buffer_check(output['internal'][-1][1], markers=_streaming_markers, tool_names=_tool_names, check_bare_names=_check_bare_names):
+        output['visible'][-1][1] = _last_visible_before_tool_buffer or ''
 
     yield output
 
@@ -1007,10 +1178,13 @@ def websocket_send(_json, force_render=False):
         logger.warning("No main event loop available for WebSocket")
 
 
-
 def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
     '''
-    Same as above but returns HTML for the UI
+    Same as above but returns HTML for the UI.
+    When tools are selected, wraps generation in a loop that detects
+    tool calls, executes them, and re-generates until the model stops.
+    All tool output is consolidated into a single visible chat bubble
+    using metadata['assistant_N']['tool_sequence'].
     '''
 
     if not character_is_loaded(state):
@@ -1025,23 +1199,272 @@ def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
         send_dummy_message(text, state)
         send_dummy_reply(state['start_with'], state)
 
-    history = state['history']
+    # On regenerate, clear old tool_sequence metadata so it gets rebuilt.
+    # Save it first so it can be stored per-version below.
+    # This must happen after the start_with logic above, which may remove
+    # and re-add messages, changing which row we operate on.
+    _old_tool_sequence = None
+    if regenerate:
+        history = state['history']
+        meta = history.get('metadata', {})
+        row_idx = len(history['internal']) - 1
+        if row_idx >= 0:
+            _old_tool_sequence = meta.get(f'assistant_{row_idx}', {}).pop('tool_sequence', None)
+
+    # Load tools if any are selected
+    selected = state.get('selected_tools', [])
+    parse_tool_call = None
+    _tool_parsers = None
+    if selected:
+        from modules.tool_use import load_tools, execute_tool
+        from modules.tool_parsing import parse_tool_call, get_tool_call_id, detect_tool_call_format
+
+    if selected:
+        tool_defs, tool_executors = load_tools(selected)
+        state['tools'] = tool_defs
+        tool_func_names = [t['function']['name'] for t in tool_defs]
+        _template_str = state.get('instruction_template_str', '') if state.get('mode') == 'instruct' else state.get('chat_template_str', '')
+        _tool_parsers, _, _ = detect_tool_call_format(_template_str)
+    else:
+        tool_func_names = None
+
+    def _render():
+        websocket_send(chat_html_wrapper(history, state['name1'], state['name2'], state['mode'],
+                                     state['chat_style'], state['character_menu']),
+                       force_render=True)
+
+    visible_prefix = []  # Accumulated tool call summaries + results
     last_save_time = time.monotonic()
     save_interval = 8
-    for i, history in enumerate(generate_chat_reply(text, state, regenerate, _continue, loading_message=True, for_ui=True)):
-        websocket_send(chat_html_wrapper(history, state['name1'], state['name2'], state['mode'], state['chat_style'], state['character_menu'],
-                                         last_message_only=(i > 0)), force_render=(i == 0))
+    _tool_turn = 0
+    while True:
+        history = state['history']
+
+        # Turn 0: use original flags; turns 2+: regenerate into the same entry.
+        # _tool_turn tells chatbot_wrapper to skip version creation/sync so
+        # that intermediate tool-loop regenerations don't pollute swipe history.
+        if _tool_turn > 0:
+            state['_tool_turn'] = True
+            state['_skip_output_extensions'] = True
+
+        regen = regenerate if _tool_turn == 0 else True
+        cont = _continue if _tool_turn == 0 else False
+        cur_text = text if _tool_turn == 0 else ''
+
+        for i, history in enumerate(generate_chat_reply(cur_text, state, regen, cont, loading_message=True, for_ui=True)):
+            # Prepend accumulated tool output to visible reply for display.
+            # Save and restore the original to prevent the markers from leaking
+            # back into chatbot_wrapper's shared output object, which would cause
+            # duplication on the next yield.
+            _original_visible = history['visible'][-1][1] if visible_prefix else None
+            if visible_prefix:
+                history['visible'][-1][1] = '\n\n'.join(visible_prefix + [_original_visible])
+
+            websocket_send(chat_html_wrapper(history, state['name1'], state['name2'],
+                                             state['mode'], state['chat_style'], state['character_menu'],
+                                             last_message_only=(i > 0)),
+                           force_render=(i == 0))
+            yield history
+
+            if visible_prefix:
+                history['visible'][-1][1] = _original_visible
+
+            if i == 0:
+                # Save old tool_sequence into version 0 (created by chatbot_wrapper
+                # on the first yield).  Only needed on the first regeneration when
+                # versions didn't previously exist.
+                if _old_tool_sequence is not None and _tool_turn == 0:
+                    _ri = len(history['internal']) - 1
+                    _versions = history.get('metadata', {}).get(f'assistant_{_ri}', {}).get('versions', [])
+                    if _versions and 'tool_sequence' not in _versions[0]:
+                        _versions[0]['tool_sequence'] = _old_tool_sequence
+                    _old_tool_sequence = None
+
+            current_time = time.monotonic()
+            if i == 0 or (current_time - last_save_time) >= save_interval:
+                save_history(history, state['unique_id'], state['character_menu'], state['mode'])
+                last_save_time = current_time
+
+            # Early stop on tool call detection
+            if tool_func_names and parse_tool_call(history['internal'][-1][1], tool_func_names, parsers=_tool_parsers):
+                break
+
+        # Ensure that the entire message is rendered
+        websocket_send(chat_html_wrapper(history, state['name1'], state['name2'], state['mode'],
+                                         state['chat_style'], state['character_menu'],
+                                         last_message_only=True),
+                       force_render=True)
+
+        # Save the model's visible output before re-applying visible_prefix,
+        # so we can extract thinking content from just this turn's output.
+        _model_visible = history['visible'][-1][1]
+
+        # Recover visible_prefix from existing visible text (e.g. on Continue
+        # after a previous session had tool calls). Extract all <tool_call>
+        # blocks and any text between them (thinking blocks, intermediate text).
+        if tool_func_names and not visible_prefix and _model_visible:
+            tc_matches = list(re.finditer(r'<tool_call>.*?</tool_call>', _model_visible, re.DOTALL))
+            if tc_matches:
+                prefix_end = tc_matches[-1].end()
+                prefix = _model_visible[:prefix_end].strip()
+                if prefix:
+                    visible_prefix = [prefix]
+                _model_visible = _model_visible[prefix_end:].strip()
+
+        # Re-apply visible prefix to the final state after streaming completes.
+        # This is safe because we're no longer sharing the object with chatbot_wrapper.
+        if visible_prefix:
+            history['visible'][-1][1] = '\n\n'.join(visible_prefix + [_model_visible])
+
+        if tool_func_names:
+            save_history(history, state['unique_id'], state['character_menu'], state['mode'])
+
+        # Check for tool calls
+        if not tool_func_names or shared.stop_everything:
+            break
+
+        answer = history['internal'][-1][1]
+        parsed_calls, content_prefix = parse_tool_call(answer, tool_func_names, return_prefix=True, parsers=_tool_parsers) if answer else (None, '')
+
+        if not parsed_calls:
+            break  # No tool calls — done
+
+        # --- Process tool calls ---
+        row_idx = len(history['internal']) - 1
+        meta = history.get('metadata', {})
+        seq = meta.setdefault(f'assistant_{row_idx}', {}).setdefault('tool_sequence', [])
+
+
+        # Serialize tool calls and build display headers in one pass
+        serialized = []
+        tc_headers = []
+        for tc in parsed_calls:
+            tc['id'] = get_tool_call_id()
+            fn_name = tc['function']['name']
+            fn_args = tc['function'].get('arguments', {})
+
+            serialized.append({
+                'id': tc['id'],
+                'type': 'function',
+                'function': {
+                    'name': fn_name,
+                    'arguments': json.dumps(fn_args) if isinstance(fn_args, dict) else fn_args
+                }
+            })
+
+            if isinstance(fn_args, dict) and fn_args:
+                args_summary = ', '.join(f'{k}={json.dumps(v, ensure_ascii=False)}' for k, v in fn_args.items())
+            elif isinstance(fn_args, dict):
+                args_summary = ''
+            else:
+                args_summary = str(fn_args)
+
+            tc_headers.append(f'{fn_name}({args_summary})')
+
+        seq_entry = {'tool_calls': serialized}
+        if content_prefix.strip():
+            # Strip GPT-OSS channel tokens so they don't get double-wrapped
+            # by the template (which adds its own channel markup).
+            clean = content_prefix.strip()
+            if '<|channel|>' in clean and '<|message|>' in clean:
+                inner = clean.split('<|message|>', 1)[1]
+                if '<|end|>' in inner:
+                    inner = inner.split('<|end|>', 1)[0]
+                clean = inner.strip()
+            if clean:
+                seq_entry['content'] = clean
+        seq.append(seq_entry)
+
+        # Clear internal (raw tool markup)
+        history['internal'][-1][1] = ''
+
+        # Preserve thinking block and intermediate text from this turn.
+        # content_prefix is the raw text before tool call syntax (returned
+        # by parse_tool_call); HTML-escape it and extract thinking to get
+        # the content the user should see.
+        content_text = html.escape(content_prefix)
+        thinking_content, intermediate = extract_thinking_block(content_text)
+        if thinking_content:
+            visible_prefix.append(f'&lt;think&gt;\n{thinking_content}\n&lt;/think&gt;')
+        if intermediate and intermediate.strip():
+            visible_prefix.append(intermediate.strip())
+
+        # Show placeholder accordions with "..." before execution starts
+        # (tool calls may be slow, e.g. web search).
+        pending_placeholders = [f'<tool_call>{h}\n...\n</tool_call>' for h in tc_headers]
+        history['visible'][-1][1] = '\n\n'.join(visible_prefix + pending_placeholders)
+        _render()
         yield history
 
-        current_time = time.monotonic()
-        # Save on first iteration or if save_interval seconds have passed
-        if i == 0 or (current_time - last_save_time) >= save_interval:
-            save_history(history, state['unique_id'], state['character_menu'], state['mode'])
-            last_save_time = current_time
+        # Execute tools, store results, and replace placeholders with real results
+        for i, tc in enumerate(parsed_calls):
+            # Check for stop request before each tool execution
+            if shared.stop_everything:
+                for j in range(i, len(parsed_calls)):
+                    seq.append({'role': 'tool', 'content': 'Tool execution was cancelled by the user.', 'tool_call_id': parsed_calls[j]['id']})
+                    pending_placeholders[j] = f'<tool_call>{tc_headers[j]}\nCancelled\n</tool_call>'
 
-    # Ensure that the entire message is rendered
-    websocket_send(chat_html_wrapper(history, state['name1'], state['name2'], state['mode'], state['chat_style'],
-                                    state['character_menu'], last_message_only=True), force_render=True)
+                history['visible'][-1][1] = '\n\n'.join(visible_prefix + pending_placeholders)
+                _render()
+                yield history
+                break
+
+            fn_name = tc['function']['name']
+            fn_args = tc['function'].get('arguments', {})
+            result = execute_tool(fn_name, fn_args, tool_executors)
+
+            seq.append({'role': 'tool', 'content': result, 'tool_call_id': tc['id']})
+            try:
+                pretty_result = json.dumps(json.loads(result), indent=2, ensure_ascii=False)
+            except (json.JSONDecodeError, TypeError):
+                pretty_result = result
+
+            # Replace the placeholder with the real result
+            pending_placeholders[i] = f'<tool_call>{tc_headers[i]}\n{pretty_result}\n</tool_call>'
+            history['visible'][-1][1] = '\n\n'.join(visible_prefix + pending_placeholders)
+            _render()
+            yield history
+
+        # Move completed tool calls into visible_prefix for next turns
+        visible_prefix.extend(pending_placeholders)
+        history['visible'][-1][1] = '\n\n'.join(visible_prefix)
+        save_history(history, state['unique_id'], state['character_menu'], state['mode'])
+
+        state['history'] = history
+        _tool_turn += 1
+
+    state.pop('_tool_turn', None)
+
+    # If output extensions were deferred during tool turns, apply them now
+    # to the final model response only (not to tool call markers).
+    if state.pop('_skip_output_extensions', None):
+        _model_visible = apply_extensions('output', _model_visible, state, is_chat=True)
+        if visible_prefix:
+            history['visible'][-1][1] = '\n\n'.join(visible_prefix + [_model_visible])
+        else:
+            history['visible'][-1][1] = _model_visible
+
+        _render()
+        yield history
+
+    state['history'] = history
+
+    # Sync version metadata so swipes show the full visible (with tool prefix)
+    if visible_prefix and history.get('metadata'):
+        row_idx = len(history['internal']) - 1
+        key = f"assistant_{row_idx}"
+        meta_entry = history['metadata'].get(key, {})
+        if 'versions' in meta_entry and 'current_version_index' in meta_entry:
+            current_idx = meta_entry['current_version_index']
+            if current_idx < len(meta_entry['versions']):
+                version_update = {
+                    'content': history['internal'][row_idx][1],
+                    'visible_content': history['visible'][row_idx][1]
+                }
+                ts = meta_entry.get('tool_sequence')
+                if ts is not None:
+                    version_update['tool_sequence'] = ts
+                meta_entry['versions'][current_idx].update(version_update)
 
     save_history(history, state['unique_id'], state['character_menu'], state['mode'])
 
@@ -1806,7 +2229,12 @@ def handle_start_new_chat_click(state):
 def handle_delete_chat_confirm_click(state):
     filtered_histories = find_all_histories_with_first_prompts(state)
     filtered_ids = [h[1] for h in filtered_histories]
-    index = str(filtered_ids.index(state['unique_id']))
+
+    if state['unique_id'] not in filtered_ids:
+        # Incognito or unknown chat — just load the most recent saved chat
+        index = '0'
+    else:
+        index = str(filtered_ids.index(state['unique_id']))
 
     delete_history(state['unique_id'], state['character_menu'], state['mode'])
     history, unique_id = load_history_after_deletion(state, index)
@@ -1823,6 +2251,7 @@ def handle_delete_chat_confirm_click(state):
 
 
 def handle_branch_chat_click(state):
+    import gradio as gr
     branch_from_index = state['branch_index']
     if branch_from_index == -1:
         history = state['history']
@@ -1832,9 +2261,10 @@ def handle_branch_chat_click(state):
         history['internal'] = history['internal'][:branch_from_index + 1]
         # Prune the metadata dictionary to remove entries beyond the branch point
         if 'metadata' in history:
-            history['metadata'] = {k: v for k, v in history['metadata'].items() if
-                                   int(k.split('_')[-1]) <= branch_from_index}
-    new_unique_id = datetime.now().strftime('%Y%m%d-%H-%M-%S')
+            history['metadata'] = {k: v for k, v in history['metadata'].items() if int(k.split('_')[-1]) <= branch_from_index}
+
+    prefix = 'incognito-' if state['unique_id'] and state['unique_id'].startswith('incognito-') else ''
+    new_unique_id = prefix + datetime.now().strftime('%Y%m%d-%H-%M-%S')
     save_history(history, new_unique_id, state['character_menu'], state['mode'])
 
     histories = find_all_histories_with_first_prompts(state)
@@ -1872,14 +2302,19 @@ def handle_edit_message_click(state):
         original_visible = history['visible'][message_index][role_idx]
         original_timestamp = history['metadata'][key].get('timestamp', get_current_timestamp())
 
-        history['metadata'][key]["versions"] = [{
+        version_entry = {
             "content": original_content,
             "visible_content": original_visible,
             "timestamp": original_timestamp
-        }]
+        }
+        ts = history['metadata'][key].get('tool_sequence')
+        if ts is not None:
+            version_entry['tool_sequence'] = ts
+        history['metadata'][key]["versions"] = [version_entry]
 
     history['internal'][message_index][role_idx] = apply_extensions('input', new_text, state, is_chat=True)
     history['visible'][message_index][role_idx] = html.escape(new_text)
+    history['metadata'][key].pop('tool_sequence', None)
 
     add_message_version(history, role, message_index, is_current=True)
 
@@ -1924,6 +2359,14 @@ def handle_navigate_version_click(state):
     history['internal'][message_index][msg_content_idx] = version_to_load['content']
     history['visible'][message_index][msg_content_idx] = version_to_load['visible_content']
     metadata['current_version_index'] = new_idx
+
+    # Restore per-version tool_sequence so follow-up prompts see consistent context
+    version_ts = version_to_load.get('tool_sequence')
+    if version_ts is not None:
+        metadata['tool_sequence'] = version_ts
+    else:
+        metadata.pop('tool_sequence', None)
+
     update_message_metadata(history['metadata'], role, message_index, timestamp=version_to_load['timestamp'])
 
     # Redraw and save

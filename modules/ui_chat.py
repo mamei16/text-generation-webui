@@ -84,7 +84,23 @@ def create_ui():
 
                 gr.HTML("<div class='sidebar-vertical-separator'></div>")
 
-                disable_svelte_updates = gr.Checkbox(value=True, label='Disable UI updates', info="Only applies while streaming", elem_id="disable-svelte-ui-updates", interactive=True)
+                gr.Checkbox(value=True, label='Disable UI updates', info="Only applies while streaming", elem_id="disable-svelte-ui-updates", interactive=True)
+
+                gr.HTML("<div class='sidebar-vertical-separator'></div>")
+
+                with gr.Row():
+                    shared.gradio['model_status_indicator'] = gr.HTML(value='Model status ⚫')
+
+                gr.HTML("<div class='sidebar-vertical-separator'></div>")
+
+                from modules.tool_use import get_available_tools
+
+                with gr.Row():
+                    shared.gradio['selected_tools'] = gr.CheckboxGroup(choices=get_available_tools(), value=[],
+                                                                       label='Tools',
+                                                                       info='Functions the model can call during generation.')
+                    ui.create_refresh_button(shared.gradio['selected_tools'], lambda: None,
+                                             lambda: {'choices': get_available_tools()}, 'refresh-button-top')
 
                 gr.HTML("<div class='sidebar-vertical-separator'></div>")
 
@@ -96,9 +112,6 @@ def create_ui():
                     shared.gradio['chat_style'] = gr.Dropdown(choices=utils.get_available_chat_styles(), label='Chat style', value=shared.settings['chat_style'], visible=shared.settings['mode'] != 'instruct')
 
                 gr.HTML("<div class='sidebar-vertical-separator'></div>")
-
-                with gr.Row():
-                    shared.gradio['model_status_indicator'] = gr.HTML(value='Model status ⚫')
 
                 with gr.Row():
                     shared.gradio['chat-instruct_command'] = gr.Textbox(value=shared.settings['chat-instruct_command'], lines=12, label='Command for chat-instruct mode', info='<|character|> and <|prompt|> get replaced with the bot name and the regular chat prompt respectively.', visible=shared.settings['mode'] == 'chat-instruct', elem_classes=['add_scrollbar'])

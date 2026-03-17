@@ -11,6 +11,7 @@ import markdown
 from PIL import Image, ImageOps
 
 from modules import shared
+from modules.reasoning import extract_reasoning
 from modules.sane_markdown_lists import SaneListExtension
 from modules.utils import get_available_chat_styles
 
@@ -109,97 +110,81 @@ def replace_blockquote(m):
     return m.group().replace('\n', '\n> ').replace('\\begin{blockquote}', '').replace('\\end{blockquote}', '')
 
 
-def extract_thinking_blocks(string):
-    """Extract thinking blocks from a string."""
-    if not string:
-        return None, string
 
-    THINK_START_TAG = "&lt;think&gt;"
-    THINK_END_TAG = "&lt;/think&gt;"
-
-    # Look for think tag first
-    start_pos = string.find(THINK_START_TAG)
-    end_pos = string.find(THINK_END_TAG)
-
-    thinking_contents = []
-    remaining_contents = []
-
-    # no start tag, only end tag
-    if start_pos == -1 and end_pos != -1:
-        think_end_pos = end_pos + len(THINK_END_TAG)
-        thinking_contents.append(string[:think_end_pos])
-        remaining_contents.append(string[think_end_pos:])
-        return thinking_contents, remaining_contents
-
-    think_start_re = re.compile(THINK_START_TAG)
-    # Adjust start position to account for any leading whitespace
-    start_pos_matches = think_start_re.finditer(string)
-    end_pos = 0
-    for start_pos_match in start_pos_matches:
-        tag_start, tag_end = start_pos_match.span()
-        # If there are multiple start tags before an end tag, only use the first
-        if end_pos > tag_start:
-            continue
-        if end_pos > 0:
-            remaining_contents.append(string[end_pos+len(THINK_END_TAG):tag_start])
-        # Find the content after the opening tag
-        content_start = tag_end
-
-        # Look for closing tag
-        end_pos = string.find(THINK_END_TAG, content_start)
-
-        if end_pos == -1:
-            # Only opening tag found - everything else is thinking content
-            thinking_contents.append(string[content_start:])
-            return thinking_contents, remaining_contents
-        else:
-            # Both tags found - extract content between them
-            thinking_contents.append(string[content_start:end_pos])
-
-    if thinking_contents:
-        remaining_contents.append(string[end_pos + len(THINK_END_TAG):])
-        return thinking_contents, remaining_contents
-
-    # If think tags not found, try alternative format
-    ALT_START = "&lt;|channel|&gt;analysis&lt;|message|&gt;"
-    ALT_END = "&lt;|end|&gt;"
-    ALT_CONTENT_START = "&lt;|start|&gt;assistant&lt;|channel|&gt;final&lt;|message|&gt;"
-
-    alt_start_pos = string.find(ALT_START)
-    alt_end_pos = string.find(ALT_END)
-    alt_content_pos = string.find(ALT_CONTENT_START)
-
-    if alt_start_pos != -1 or alt_end_pos != -1:
-        if alt_start_pos == -1:
-            thought_start = 0
-        else:
-            thought_start = alt_start_pos + len(ALT_START)
-
-        # If no explicit end tag but content start exists, use content start as end
-        if alt_end_pos == -1:
-            if alt_content_pos != -1:
-                thought_end = alt_content_pos
-                content_start = alt_content_pos + len(ALT_CONTENT_START)
-            else:
-                thought_end = len(string)
-                content_start = len(string)
-        else:
-            thought_end = alt_end_pos
-            content_start = alt_content_pos + len(ALT_CONTENT_START) if alt_content_pos != -1 else alt_end_pos + len(
-                ALT_END)
-
-        thinking_content = string[thought_start:thought_end]
-        remaining_content = string[content_start:]
-        return [thinking_content], [remaining_content]
-
-    # Return if neither format is found
-    return [], [string]
+def extract_thinking_block(string):
+    """Extract thinking blocks from the beginning of an HTML-escaped string."""
+    return extract_reasoning(string, html_escaped=True)
 
 
+
+def build_tool_call_block(header, body, message_id, index):
+    """Build HTML for a tool call accordion block."""
+    block_id = f"tool-call-{message_id}-{index}"
+
+    if body == '...':
+        # Pending placeholder — no expandable body, just title with ellipsis
+        return f'''
+        <details class="thinking-block" data-block-id="{block_id}">
+            <summary class="thinking-header">
+                {tool_svg_small}
+                <span class="thinking-title">{html.escape(header)} ...</span>
+            </summary>
+        </details>
+        '''
+
+    # Build a plain <pre> directly to avoid highlight.js auto-detection
+    escaped_body = html.escape(body)
+    return f'''
+    <details class="thinking-block" data-block-id="{block_id}">
+        <summary class="thinking-header">
+            {tool_svg_small}
+            <span class="thinking-title">{html.escape(header)}</span>
+        </summary>
+        <div class="thinking-content pretty_scrollbar"><pre><code class="nohighlight">{escaped_body}</code></pre></div>
+    </details>
+    '''
+
+
+def build_thinking_block(thinking_content, message_id, has_remaining_content, thinking_index=0):
+    """Build HTML for a thinking block."""
+    if thinking_content is None:
+        return None
+
+    # Process the thinking content through markdown
+    thinking_html = process_markdown_content(thinking_content)
+
+    # Generate unique ID for the thinking block
+    block_id = f"thinking-{message_id}-{thinking_index}"
+
+    # Check if thinking is complete or still in progress
+    is_streaming = not has_remaining_content
+    title_text = "Thinking..." if is_streaming else "Thought"
+
+    return f'''
+    <details class="thinking-block" data-block-id="{block_id}" data-streaming="{str(is_streaming).lower()}">
+        <summary class="thinking-header">
+            {info_svg_small}
+            <span class="thinking-title">{title_text}</span>
+        </summary>
+        <div class="thinking-content pretty_scrollbar">{thinking_html}</div>
+    </details>
+    '''
+
+
+def build_main_content_block(content):
+    """Build HTML for the main content block."""
+    if not content:
+        return ""
+
+    return process_markdown_content(content)
 
 
 @functools.lru_cache(maxsize=None)
 def convert_to_markdown(string, message_id=None):
+    """
+    Convert a string to markdown HTML with support for multiple block types.
+    Blocks are assembled in order: thinking, main content, etc.
+    """
     if not string:
         return ""
 
@@ -207,40 +192,67 @@ def convert_to_markdown(string, message_id=None):
     if message_id is None:
         message_id = "unknown"
 
-    # Extract thinking block if present
-    thinking_contents, remaining_contents = extract_thinking_blocks(string)
-    html_output = ""
-    for i, (thinking_content, remaining_content) in enumerate(zip_longest(thinking_contents, remaining_contents)):
+    # Find tool call blocks by position, then process the text segments
+    # between them using extract_thinking_block (which supports all
+    # THINKING_FORMATS, including end-only variants like Qwen's).
+    tool_call_pattern = re.compile(r'<tool_call>(.*?)\n(.*?)\n</tool_call>', re.DOTALL)
+    tool_calls = list(tool_call_pattern.finditer(string))
 
-        # If thinking content was found, process it using the same function
-        if thinking_content:
-            thinking_html = process_markdown_content(thinking_content)
+    if not tool_calls:
+        # No tool calls — use original single-pass extraction
+        thinking_content, remaining_content = extract_thinking_block(string)
+        blocks = []
+        thinking_html = build_thinking_block(thinking_content, message_id, bool(remaining_content))
+        if thinking_html:
+            blocks.append(thinking_html)
 
-            # Generate unique ID for the thinking block
-            block_id = f"thinking-{message_id}-{i}"
+        main_html = build_main_content_block(remaining_content)
+        if main_html:
+            blocks.append(main_html)
 
-            # Check if thinking is complete or still in progress
-            is_streaming = not remaining_content
-            title_text = "Thinking..." if is_streaming else "Thought"
+        return ''.join(blocks)
 
-            thinking_block = f'''
-            <details class="thinking-block" data-block-id="{block_id}" data-streaming="{str(is_streaming).lower()}">
-                <summary class="thinking-header">
-                    {info_svg_small}
-                    <span class="thinking-title">{title_text}</span>
-                </summary>
-                <div class="thinking-content pretty_scrollbar">{thinking_html}</div>
-            </details>
-            '''
+    # Split string into text segments around tool_call blocks and
+    # run extract_thinking_block on each segment for full format support.
+    html_parts = []
+    last_end = 0
+    tool_idx = 0
+    think_idx = 0
 
-            # Prepend the thinking block to the message HTML
-            html_output += thinking_block
+    def process_text_segment(text, is_last_segment):
+        """Process a text segment between tool_call blocks for thinking content."""
+        nonlocal think_idx
+        if not text.strip():
+            return
 
-        # Process the main content
-        if remaining_content:
-            html_output += process_markdown_content(remaining_content)
+        while text.strip():
+            thinking_content, remaining = extract_thinking_block(text)
+            if thinking_content is None:
+                break
+            has_remaining = bool(remaining.strip()) or not is_last_segment
+            html_parts.append(build_thinking_block(thinking_content, message_id, has_remaining, think_idx))
+            think_idx += 1
+            text = remaining
 
-    return html_output
+        if text.strip():
+            html_parts.append(process_markdown_content(text))
+
+    for tc in tool_calls:
+        # Process text before this tool_call
+        process_text_segment(string[last_end:tc.start()], is_last_segment=False)
+
+        # Add tool call accordion
+        header = tc.group(1).strip()
+        body = tc.group(2).strip()
+        html_parts.append(build_tool_call_block(header, body, message_id, tool_idx))
+        tool_idx += 1
+        last_end = tc.end()
+
+    # Process text after the last tool_call
+    process_text_segment(string[last_end:], is_last_segment=True)
+
+    return ''.join(html_parts)
+
 
 
 def wrap_code_block_paragraphs(html_string):
@@ -481,6 +493,7 @@ edit_svg = '''<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" vie
 info_svg = '''<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="thinking-icon tabler-icon tabler-icon-info-circle"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 2a10 10 0 0 1 0 20a10 10 0 0 1 0 -20z" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>'''
 info_svg_small = '''<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="thinking-icon tabler-icon tabler-icon-info-circle"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 2a10 10 0 0 1 0 20a10 10 0 0 1 0 -20z" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>'''
 attachment_svg = '''<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.48-8.48l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>'''
+tool_svg_small = '''<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="thinking-icon tabler-icon tabler-icon-tool"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 10h3v-3l-3.5 -3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1 -3 3l-6 -6a6 6 0 0 1 -8 -8l3.5 3.5" /></svg>'''
 
 copy_button = f'<button class="footer-button footer-copy-button" title="Copy" onclick="copyToClipboard(this)">{copy_svg}</button>'
 branch_button = f'<button class="footer-button footer-branch-button" title="Branch here" onclick="branchHere(this)">{branch_svg}</button>'

@@ -243,6 +243,7 @@ def list_interface_input_elements():
         'unique_id',
         'textbox',
         'start_with',
+        'selected_tools',
         'mode',
         'chat_style',
         'chat-instruct_command',
