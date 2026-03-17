@@ -28,7 +28,6 @@ warnings.filterwarnings('ignore', category=UserWarning, message='The value passe
 warnings.filterwarnings('ignore', category=UserWarning, message='Field "model_names" has conflict')
 
 with RequestBlocker():
-    from modules import gradio_hijack
     import gradio as gr
 
 import matplotlib
