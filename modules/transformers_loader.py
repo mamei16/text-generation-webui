@@ -165,8 +165,6 @@ def load_model_HF(model_name):
         shared.args.disk,
         shared.args.deepspeed,
         shared.args.cpu_memory is not None,
-        shared.args.compress_pos_emb > 1,
-        shared.args.alpha_value > 1,
     ])
 
     # Load the model without any special settings
@@ -247,11 +245,6 @@ def load_model_HF(model_name):
 
             if shared.args.disk:
                 params['offload_folder'] = str(Path(shared.args.disk_cache_dir))
-
-        if shared.args.compress_pos_emb > 1:
-            params['rope_scaling'] = {'type': 'linear', 'factor': shared.args.compress_pos_emb}
-        elif shared.args.alpha_value > 1:
-            params['rope_scaling'] = {'type': 'dynamic', 'factor': shared.args.alpha_value}
 
         logger.info("TRANSFORMERS_PARAMS=")
         pprint.PrettyPrinter(indent=4, sort_dicts=False).pprint(params)

@@ -192,8 +192,6 @@ class Exllamav2HF(PreTrainedModel, GenerationMixin):
         config.prepare()
 
         config.max_seq_len = shared.args.ctx_size
-        config.scale_pos_emb = shared.args.compress_pos_emb
-        config.scale_alpha_value = shared.args.alpha_value
         config.no_flash_attn = shared.args.no_flash_attn
         config.no_xformers = shared.args.no_xformers
         config.no_sdpa = shared.args.no_sdpa

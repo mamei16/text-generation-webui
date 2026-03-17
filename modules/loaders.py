@@ -6,6 +6,7 @@ import gradio as gr
 loaders_and_params = OrderedDict({
     'llama.cpp': [
         'gpu_layers',
+        'fit_target',
         'threads',
         'threads_batch',
         'batch_size',
@@ -15,8 +16,6 @@ loaders_and_params = OrderedDict({
         'tensor_split',
         'extra_flags',
         'streaming_llm',
-        'rope_freq_base',
-        'compress_pos_emb',
         'row_split',
         'no_kv_offload',
         'no_mmap',
@@ -27,6 +26,11 @@ loaders_and_params = OrderedDict({
         'gpu_layers_draft',
         'device_draft',
         'ctx_size_draft',
+        'ngram_header',
+        'spec_type',
+        'spec_ngram_size_n',
+        'spec_ngram_size_m',
+        'spec_ngram_min_hits',
         'speculative_decoding_accordion',
         'mmproj',
         'mmproj_accordion',
@@ -36,8 +40,6 @@ loaders_and_params = OrderedDict({
     'Transformers': [
         'gpu_split',
         'cpu_memory',
-        'alpha_value',
-        'compress_pos_emb',
         'compute_dtype',
         'quant_type',
         'load_in_8bit',
@@ -76,8 +78,6 @@ loaders_and_params = OrderedDict({
         'ctx_size',
         'cache_type',
         'gpu_split',
-        'alpha_value',
-        'compress_pos_emb',
         'num_experts_per_token',
         'autosplit',
         'enable_tp',
@@ -92,8 +92,6 @@ loaders_and_params = OrderedDict({
         'ctx_size',
         'cache_type',
         'gpu_split',
-        'alpha_value',
-        'compress_pos_emb',
         'num_experts_per_token',
         'autosplit',
         'enable_tp',
@@ -106,11 +104,6 @@ loaders_and_params = OrderedDict({
         'speculative_decoding_accordion',
         'default_param_preset',
     ],
-    'TensorRT-LLM': [
-        'ctx_size',
-        'cpp_runner',
-        'tensorrt_llm_info',
-    ]
 })
 
 
