@@ -1383,7 +1383,9 @@ def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
         # by parse_tool_call); HTML-escape it and extract thinking to get
         # the content the user should see.
         content_text = html.escape(content_prefix)
-        thinking_content, intermediate = extract_thinking_block(content_text)
+        thinking_contents, intermediates = extract_thinking_block(content_text)
+        thinking_content = thinking_contents[0] if thinking_contents else ""
+        intermediate = intermediates[0] if intermediates else ""
         if thinking_content:
             visible_prefix.append(f'&lt;think&gt;\n{thinking_content}\n&lt;/think&gt;')
         if intermediate and intermediate.strip():

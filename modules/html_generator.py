@@ -200,15 +200,17 @@ def convert_to_markdown(string, message_id=None):
 
     if not tool_calls:
         # No tool calls — use original single-pass extraction
-        thinking_content, remaining_content = extract_thinking_block(string)
+        thinking_contents, remaining_contents = extract_thinking_block(string)
         blocks = []
-        thinking_html = build_thinking_block(thinking_content, message_id, bool(remaining_content))
-        if thinking_html:
-            blocks.append(thinking_html)
+        for i, (thinking_content, remaining_content) in enumerate(zip_longest(thinking_contents, remaining_contents)):
+            thinking_html = build_thinking_block(thinking_content, message_id, bool(remaining_content),
+                                                 thinking_index=i)
+            if thinking_html:
+                blocks.append(thinking_html)
 
-        main_html = build_main_content_block(remaining_content)
-        if main_html:
-            blocks.append(main_html)
+            main_html = build_main_content_block(remaining_content)
+            if main_html:
+                blocks.append(main_html)
 
         return ''.join(blocks)
 
@@ -226,13 +228,15 @@ def convert_to_markdown(string, message_id=None):
             return
 
         while text.strip():
-            thinking_content, remaining = extract_thinking_block(text)
-            if thinking_content is None:
-                break
+            thinking_contents, remaining_contents = extract_thinking_block(text)
+            remaining = remaining_contents[0] if remaining_contents else ""
             has_remaining = bool(remaining.strip()) or not is_last_segment
+            text = remaining
+            if not thinking_contents:
+                break
+            thinking_content = thinking_contents[0] if thinking_contents else ""
             html_parts.append(build_thinking_block(thinking_content, message_id, has_remaining, think_idx))
             think_idx += 1
-            text = remaining
 
         if text.strip():
             html_parts.append(process_markdown_content(text))
