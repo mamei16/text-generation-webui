@@ -185,31 +185,13 @@ def create_interface():
             gradio('show_controls'),
             None,
             js=f"""(x) => {{
-                // Check if this is first visit or if localStorage is out of sync
-                const savedTheme = localStorage.getItem('theme');
-                const serverTheme = {str(shared.settings['dark_theme']).lower()} ? 'dark' : 'light';
-
-                // If no saved theme or mismatch with server on first load, use server setting
-                if (!savedTheme || !sessionStorage.getItem('theme_synced')) {{
-                    localStorage.setItem('theme', serverTheme);
-                    sessionStorage.setItem('theme_synced', 'true');
-                    if (serverTheme === 'dark') {{
-                        document.getElementsByTagName('body')[0].classList.add('dark');
-                    }} else {{
-                        document.getElementsByTagName('body')[0].classList.remove('dark');
-                    }}
-                }} else {{
-                    // Use localStorage for subsequent reloads
-                    if (savedTheme === 'dark') {{
-                        document.getElementsByTagName('body')[0].classList.add('dark');
-                    }} else {{
-                        document.getElementsByTagName('body')[0].classList.remove('dark');
-                    }}
-                }}
-                {js}
-                {ui.show_controls_js}
-                toggle_controls(x);
-            }}"""
+                        if (!localStorage.getItem('theme')) {{
+                            localStorage.setItem('theme', {str(shared.settings['dark_theme']).lower()} ? 'dark' : 'light');
+                        }}
+                        {js}
+                        {ui.show_controls_js}
+                        toggle_controls(x);
+                    }}"""
         )
 
         shared.gradio['interface'].load(partial(ui.apply_interface_values, {}, use_persistent=True), None, gradio(ui.list_interface_input_elements()), show_progress=False)
