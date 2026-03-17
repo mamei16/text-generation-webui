@@ -180,6 +180,8 @@ loaders_samplers = {
         'min_p',
         'top_p',
         'top_k',
+        'adaptive_target',
+        'adaptive_decay',
         'typical_p',
         'xtc_threshold',
         'xtc_probability',
