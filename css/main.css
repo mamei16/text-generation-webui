@@ -1740,6 +1740,15 @@ button:focus {
     progressContainer.style.outlineWidth = "0px";
 }
 
+.message-body table {
+    display: table;
+    overflow-x: auto;
+}
+
+.message-body :is(td, th) {
+    word-break: normal;
+    overflow-wrap: normal;
+}
 
 /* ------------------------------------------------
    Tools CheckboxGroup - vertical DragDrop-like style
