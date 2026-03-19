@@ -1740,8 +1740,7 @@ button:focus {
     progressContainer.style.outlineWidth = "0px";
 }
 
-.message-body table {
-    display: table;
+.table-wrapper {
     overflow-x: auto;
 }
 

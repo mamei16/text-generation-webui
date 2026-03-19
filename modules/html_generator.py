@@ -436,6 +436,10 @@ def process_markdown_content(string):
     # Unescape backslashes
     html_output = html_output.replace('\\\\', '\\')
 
+    # Wrap tables in a scrollable div
+    html_output = html_output.replace('<table>', '<div class="table-wrapper pretty_scrollbar"><table>').replace(
+        '</table>', '</table></div>')
+
     html_output = wrap_code_block_paragraphs(html_output)
 
     return html_output
