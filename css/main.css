@@ -1401,7 +1401,6 @@ div.svelte-362y77>*, div.svelte-362y77>.form>* {
     overflow-wrap: break-word;
     max-height: 250px;
     overflow-y: hidden !important;
-    contain: layout;
     scrollbar-gutter: stable;
 }
 
@@ -1418,6 +1417,18 @@ div.svelte-362y77>*, div.svelte-362y77>.form>* {
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
+}
+
+/* Hide bottom 30px of thinking block while streaming to avoid ugly text visuals due to auto-scrolling */
+.thinking-block[data-streaming=true][open]::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 30px;
+    background: #1c1c1d;
+    pointer-events: none;
 }
 
 .thinking-block[open] .thinking-content {
