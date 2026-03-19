@@ -1012,7 +1012,7 @@ def chatbot_wrapper(text, state, regenerate=False, _continue=False, loading_mess
 
     # When tools are active, buffer streaming output during potential tool
     # call generation to prevent raw markup from leaking into the display.
-    _check_tool_markers = bool(state.get('tools'))
+    _check_tool_markers = False # bool(state.get('tools'))
     _last_visible_before_tool_buffer = None
     if _check_tool_markers:
         from modules.tool_parsing import streaming_tool_buffer_check, detect_tool_call_format
