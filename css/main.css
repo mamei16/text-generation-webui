@@ -603,6 +603,10 @@ div.svelte-362y77>*, div.svelte-362y77>.form>* {
 }
 
 .message-body :not(pre) > code {
+    background: #ececec;
+}
+
+.dark .message-body :not(pre) > code {
     background: #3d3e4d;
 }
 

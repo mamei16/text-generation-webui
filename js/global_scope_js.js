@@ -238,6 +238,17 @@ function darkModeEnabled() {
     return currentCSS.getAttribute("href") === "file/css/highlightjs/github-dark.min.css";
 }
 
+function toggleProgressBarDarkMode() {
+  var progressContainer = document.querySelector('.progress-container');
+  if (darkModeEnabled()) {
+    var lightGray = getComputedStyle(document.body).getPropertyValue("--light-gray");
+    progressContainer.style.backgroundColor = lightGray;
+  } else {
+    progressContainer.style.backgroundColor = "#f3f4f6";
+  }
+  updateProgressBar(progressContainer.lastPercentage);
+}
+
 
 function getColor(percentage) {
     if (percentage == 0) return "rgba(0, 0, 0, 0)";

@@ -17,4 +17,7 @@ function toggleDarkMode() {
       });
     });
   };
+
+  // Update progress bar color
+  toggleProgressBarDarkMode();
 }

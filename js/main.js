@@ -2,6 +2,13 @@
 // Main
 // ------------------------------------------------
 
+// Sync highlight.js theme with the actual Gradio theme
+var defined_hljs_css = document.body.classList.contains("dark") ? "file/css/highlightjs/github-dark.min.css" : "file/css/highlightjs/github.min.css";
+if (document.getElementById("highlight-css").getAttribute("href") !== defined_hljs_css) {
+  document.getElementById("highlight-css").setAttribute("href", defined_hljs_css);
+}
+
+
 let main_parent = document.getElementById("chat-tab").parentNode;
 let extensions = document.getElementById("extensions");
 
@@ -851,8 +858,9 @@ function setupPasteHandler() {
 }
 
 if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", setupPasteHandler);
+    document.addEventListener("DOMContentLoaded", () => {toggleProgressBarDarkMode();setupPasteHandler});
 } else {
+    toggleProgressBarDarkMode();
     setupPasteHandler();
 }
 
