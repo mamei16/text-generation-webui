@@ -74,6 +74,12 @@ jinja_env = ImmutableSandboxedEnvironment(
 jinja_env.globals["strftime_now"] = strftime_now
 
 
+def _raise_exception(message):
+    raise ValueError(message)
+
+jinja_env.globals["raise_exception"] = _raise_exception
+
+
 _template_cache = {}
 def get_compiled_template(template_str):
     """Cache compiled Jinja2 templates keyed by their source string."""
@@ -869,6 +875,8 @@ def generate_search_query(user_message, state):
         query = query.rsplit("</think>", 1)[1]
     elif "<|start|>assistant<|channel|>final<|message|>" in query:
         query = query.rsplit("<|start|>assistant<|channel|>final<|message|>", 1)[1]
+    elif "<|channel|>final<|message|>" in query:
+        query = query.rsplit("<|channel|>final<|message|>", 1)[1]
     elif "</seed:think>" in query:
         query = query.rsplit("</seed:think>", 1)[1]
 
