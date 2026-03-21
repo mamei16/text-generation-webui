@@ -516,8 +516,8 @@ div.svelte-362y77>*, div.svelte-362y77>.form>* {
     margin-bottom: 0.5em !important;
 }
 
-.message-body ul.long-list > li,
-.message-body ol.long-list > li {
+.message-body ul.long-list > li:not(:last-child),
+.message-body ol.long-list > li:not(:last-child) {
     margin-top: 1.25em !important;
     margin-bottom: 1.25em !important;
 }
@@ -864,7 +864,7 @@ div.svelte-362y77>*, div.svelte-362y77>.form>* {
     }
 }
 
-.message-body ol, .message-body ul {
+.message-body ol:not(:last-child), .message-body ul:not(:last-child) {
     margin-top: 0 !important;
     margin-bottom: 1.25em !important;
 }
@@ -1386,6 +1386,7 @@ div.svelte-362y77>*, div.svelte-362y77>.form>* {
 .thinking-icon {
     margin-right: 8px;
     color: rgb(0 0 0 / 50%);
+    flex-shrink: 0; /* Prevents the SVG from shrinking */
 }
 
 .thinking-title {
@@ -1417,18 +1418,6 @@ div.svelte-362y77>*, div.svelte-362y77>.form>* {
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
-}
-
-/* Hide bottom 30px of thinking block while streaming to avoid ugly text visuals due to auto-scrolling */
-.thinking-block[data-streaming=true][open]::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 30px;
-    background: #1c1c1d;
-    pointer-events: none;
 }
 
 .thinking-block[open] .thinking-content {
