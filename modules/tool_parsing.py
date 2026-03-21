@@ -1,6 +1,7 @@
 import json
 import random
 import re
+import html
 
 
 def get_tool_call_id() -> str:
@@ -22,6 +23,25 @@ TOOL_CALL_OPENING_MARKERS = [
     'to=functions.',
     '<|channel|>commentary',
 ]
+tool_call_opener_regex = re.compile('|'.join((re.escape(html.escape(marker)) for marker in TOOL_CALL_OPENING_MARKERS)))
+
+
+def streaming_tool_start_idx_check(text, tool_names=None):
+    # Full marker found in text → buffer permanently.
+    # Always checks ALL known markers regardless of template (cheap safety net).
+
+    opener_match = tool_call_opener_regex.search(text)
+    if opener_match:
+        return opener_match.start(), opener_match.end() - opener_match.start()
+
+    # Bare function-name full match: "get_weather{...}" or "get_weather {...}"
+    #if tool_names:
+    #    for name in tool_names:
+    #        if (idx := text.find(name + '{')) != -1:
+    #            return idx
+    #        elif (idx := text.find(name + ' {')) != -1:
+    #            return idx
+    return None, None
 
 
 def streaming_tool_buffer_check(text, markers=None, tool_names=None, check_bare_names=False):

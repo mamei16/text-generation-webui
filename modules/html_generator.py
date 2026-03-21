@@ -14,6 +14,7 @@ from modules import shared
 from modules.reasoning import extract_reasoning
 from modules.sane_markdown_lists import SaneListExtension
 from modules.utils import get_available_chat_styles
+from modules.tool_parsing import streaming_tool_start_idx_check
 
 # This is to store the paths to the thumbnails of the profile pictures
 image_cache = {}
@@ -117,30 +118,32 @@ def extract_thinking_block(string):
 
 
 
-def build_tool_call_block(header, body, message_id, index):
+def build_tool_call_block(header, body, message_id, index, escape_html=True):
     """Build HTML for a tool call accordion block."""
     block_id = f"tool-call-{message_id}-{index}"
 
+    if escape_html:
+        header = html.escape(header)
+        body = html.escape(body)
     if body == '...':
         # Pending placeholder — no expandable body, just title with ellipsis
         return f'''
         <details class="thinking-block" data-block-id="{block_id}">
             <summary class="thinking-header">
                 {tool_svg_small}
-                <span class="thinking-title">{html.escape(header)} ...</span>
+                <span class="thinking-title">{header} ...</span>
             </summary>
         </details>
         '''
 
     # Build a plain <pre> directly to avoid highlight.js auto-detection
-    escaped_body = html.escape(body)
     return f'''
     <details class="thinking-block" data-block-id="{block_id}">
         <summary class="thinking-header">
             {tool_svg_small}
-            <span class="thinking-title">{html.escape(header)}</span>
+            <span class="thinking-title">{header}</span>
         </summary>
-        <div class="thinking-content pretty_scrollbar"><pre><code class="nohighlight">{escaped_body}</code></pre></div>
+        <div class="thinking-content pretty_scrollbar"><pre><code class="nohighlight">{body}</code></pre></div>
     </details>
     '''
 
@@ -208,9 +211,17 @@ def convert_to_markdown(string, message_id=None):
             if thinking_html:
                 blocks.append(thinking_html)
 
-            main_html = build_main_content_block(remaining_content)
-            if main_html:
-                blocks.append(main_html)
+            tool_call_idx, tool_call_prefix_len = streaming_tool_start_idx_check(remaining_content)
+            if tool_call_idx is not None:
+                main_html = build_main_content_block(remaining_content[:tool_call_idx])
+                if main_html:
+                    blocks.append(main_html)
+                blocks.append(build_tool_call_block(remaining_content[tool_call_idx + tool_call_prefix_len:],
+                                                    "...", message_id, -1, escape_html=False))
+            else:
+                main_html = build_main_content_block(remaining_content)
+                if main_html:
+                    blocks.append(main_html)
 
         return ''.join(blocks)
 
@@ -252,8 +263,14 @@ def convert_to_markdown(string, message_id=None):
         tool_idx += 1
         last_end = tc.end()
 
-    # Process text after the last tool_call
-    process_text_segment(string[last_end:], is_last_segment=True)
+    tool_call_idx, tool_call_prefix_len = streaming_tool_start_idx_check(string[last_end:])
+    if tool_call_idx is not None:
+        process_text_segment(string[last_end:last_end + tool_call_idx], is_last_segment=True)
+        html_parts.append(build_tool_call_block(string[last_end + tool_call_idx + tool_call_prefix_len:],
+                                                "...", message_id, tool_idx, escape_html=False))
+    else:
+        # Process text after the last tool_call
+        process_text_segment(string[last_end:], is_last_segment=True)
 
     return ''.join(html_parts)
 

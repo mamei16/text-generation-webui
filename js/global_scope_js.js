@@ -542,7 +542,7 @@ function doSyntaxHighlighting(targetMessageBody = null) {
                       const thinkingBlocks = messageBody.querySelectorAll("details");
                       thinkingBlocks.forEach(block => {
                         thinkingContent = block.children[1];
-                        if (thinkingContent.shouldScroll) {
+                        if (thinkingContent && thinkingContent.shouldScroll) {
                             thinkingContent.scrollTop = thinkingContent.scrollTopMax ? thinkingContent.scrollTopMax : thinkingContent.scrollHeight;
                             thinkingContent.shouldScroll = undefined;
                         }
@@ -705,9 +705,9 @@ function handleMorphdomUpdate(data) {
             setTimeout(() => {
               scrollHeight = content.scrollHeight;
               if (scrollPositions[blockId].isAtBottom && (scrollHeight > scrollPositions[blockId].scrollHeight)) {
-                content.shouldScroll = true;;
+                content.shouldScroll = true;
               } else {
-                content.scrollTo = undefined;
+                content.shouldScroll = undefined;
               }
             }, 0);
           }
@@ -720,12 +720,12 @@ function handleMorphdomUpdate(data) {
               if (codeScrollPositions[blockIdx].isAtBottom) {
                 el.shouldScroll = true;
               } else {
-                el.scrollTo = undefined;
+                el.shouldScroll = undefined;
               }
             }, 0);
           }
         }
-      }
+      },
     }
   );
 
