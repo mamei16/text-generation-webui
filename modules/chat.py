@@ -1018,16 +1018,6 @@ def chatbot_wrapper(text, state, regenerate=False, _continue=False, loading_mess
                 thinking_prefix = start_tag
                 break
 
-    # When tools are active, buffer streaming output during potential tool
-    # call generation to prevent raw markup from leaking into the display.
-    _check_tool_markers = False # bool(state.get('tools'))
-    _last_visible_before_tool_buffer = None
-    if _check_tool_markers:
-        from modules.tool_parsing import streaming_tool_buffer_check, detect_tool_call_format
-        _tool_names = [t['function']['name'] for t in state['tools'] if 'function' in t and 'name' in t['function']]
-        _template_str = state.get('instruction_template_str', '') if state.get('mode') == 'instruct' else state.get('chat_template_str', '')
-        _, _streaming_markers, _check_bare_names = detect_tool_call_format(_template_str)
-
     # Generate
     reply = None
     for j, reply in enumerate(generate_reply(prompt, state, stopping_strings=stopping_strings, is_chat=True, for_ui=for_ui)):
@@ -1077,11 +1067,6 @@ def chatbot_wrapper(text, state, regenerate=False, _continue=False, loading_mess
             })
 
         if is_stream:
-            if _check_tool_markers:
-                if streaming_tool_buffer_check(output['internal'][-1][1], markers=_streaming_markers, tool_names=_tool_names, check_bare_names=_check_bare_names):
-                    continue
-                _last_visible_before_tool_buffer = output['visible'][-1][1]
-
             yield output
 
     if _continue:
@@ -1238,8 +1223,7 @@ def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
 
     def _render():
         websocket_send(chat_html_wrapper(history, state['name1'], state['name2'], state['mode'],
-                                     state['chat_style'], state['character_menu']),
-                       force_render=True)
+                                     state['chat_style'], state['character_menu'], last_message_only=True))
 
     visible_prefix = []  # Accumulated tool call summaries + results
     last_save_time = time.monotonic()
@@ -1296,12 +1280,6 @@ def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
             # Early stop on tool call detection
             if tool_func_names and parse_tool_call(history['internal'][-1][1], tool_func_names, parsers=_tool_parsers):
                 break
-
-        # Ensure that the entire message is rendered
-        websocket_send(chat_html_wrapper(history, state['name1'], state['name2'], state['mode'],
-                                         state['chat_style'], state['character_menu'],
-                                         last_message_only=True),
-                       force_render=True)
 
         # Save the model's visible output before re-applying visible_prefix,
         # so we can extract thinking content from just this turn's output.
@@ -1442,6 +1420,12 @@ def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
 
         state['history'] = history
         _tool_turn += 1
+
+    # Ensure that the entire message is rendered
+    websocket_send(chat_html_wrapper(history, state['name1'], state['name2'], state['mode'],
+                                     state['chat_style'], state['character_menu'],
+                                     last_message_only=True),
+                   force_render=True)
 
     state.pop('_tool_turn', None)
 
