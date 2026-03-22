@@ -516,9 +516,13 @@ div.svelte-362y77>*, div.svelte-362y77>.form>* {
     margin-bottom: 0.5em !important;
 }
 
+.message-body ul.long-list > li,
+.message-body ol.long-list > li {
+    margin-top: 1.25em !important;
+}
+
 .message-body ul.long-list > li:not(:last-child),
 .message-body ol.long-list > li:not(:last-child) {
-    margin-top: 1.25em !important;
     margin-bottom: 1.25em !important;
 }
 
@@ -864,9 +868,17 @@ div.svelte-362y77>*, div.svelte-362y77>.form>* {
     }
 }
 
-.message-body ol:not(:last-child), .message-body ul:not(:last-child) {
+.message-body ol, .message-body ul {
     margin-top: 0 !important;
+}
+
+.message-body ol:not(:last-child), .message-body ul:not(:last-child) {
     margin-bottom: 1.25em !important;
+}
+
+/* Hide empty paragraphs that morphdom adds */
+.message-body p:empty {
+  display: none;
 }
 
 /* ----------------------------------------------
@@ -1422,6 +1434,10 @@ div.svelte-362y77>*, div.svelte-362y77>.form>* {
 
 .thinking-block[open] .thinking-content {
     animation: fadeIn 0.3s ease-out;
+}
+
+.thinking-block[open][data-streaming="true"] .thinking-content {
+    padding: 12px 16px 0px;
 }
 
 /* Additional style for in-progress thinking */
