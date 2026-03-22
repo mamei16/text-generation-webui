@@ -232,7 +232,7 @@ def convert_to_markdown(string, message_id=None):
     tool_idx = 0
     think_idx = 0
 
-    def process_text_segment(text, is_last_segment):
+    def process_text_segment(text, is_last_segment, set_thinking_complete=False):
         """Process a text segment between tool_call blocks for thinking content."""
         nonlocal think_idx
         if not text.strip():
@@ -241,7 +241,7 @@ def convert_to_markdown(string, message_id=None):
         while text.strip():
             thinking_contents, remaining_contents = extract_thinking_block(text)
             remaining = remaining_contents[0] if remaining_contents else ""
-            has_remaining = bool(remaining.strip()) or not is_last_segment
+            has_remaining = bool(remaining.strip()) or not is_last_segment or set_thinking_complete
             text = remaining
             if not thinking_contents:
                 break
@@ -265,7 +265,7 @@ def convert_to_markdown(string, message_id=None):
 
     tool_call_idx, tool_call_prefix_len = streaming_tool_start_idx_check(string[last_end:])
     if tool_call_idx is not None:
-        process_text_segment(string[last_end:last_end + tool_call_idx], is_last_segment=True)
+        process_text_segment(string[last_end:last_end + tool_call_idx], is_last_segment=True, set_thinking_complete=True)
         html_parts.append(build_tool_call_block(string[last_end + tool_call_idx + tool_call_prefix_len:],
                                                 "...", message_id, tool_idx, escape_html=False))
     else:
