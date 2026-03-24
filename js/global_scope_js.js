@@ -590,31 +590,25 @@ function handleMorphdomUpdate(data) {
 
   const queryScope = target_element;
 
-  // Track open blocks
+  // Track open blocks and store their scroll positions
   const openBlocks = new Set();
+  const scrollPositions = {};
   queryScope.querySelectorAll(".thinking-block").forEach(block => {
     const blockId = block.getAttribute("data-block-id");
-    // If block exists and is open, add to open set
     if (blockId && block.hasAttribute("open")) {
       openBlocks.add(blockId);
-    }
-  });
-
-  // Store scroll positions for any open blocks
-  const scrollPositions = {};
-  queryScope.querySelectorAll(".thinking-block[open]").forEach(block => {
-    const content = block.querySelector(".thinking-content");
-    const blockId = block.getAttribute("data-block-id");
-    if (content && blockId) {
-      const scrollHeight = content.scrollHeight;
-      if (content.scrollTopMax)
-        isAtBottom = (content.scrollTopMax - content.scrollTop) < 5;
-      else
-        isAtBottom = (content.scrollHeight - content.clientHeight - content.scrollTop) < 5;
-      scrollPositions[blockId] = {
-        scrollHeight: scrollHeight,
-        isAtBottom: isAtBottom
-      };
+      const content = block.querySelector(".thinking-content");
+      if (content) {
+        const scrollHeight = content.scrollHeight;
+        if (content.scrollTopMax)
+          isAtBottom = (content.scrollTopMax - content.scrollTop) < 5;
+        else
+          isAtBottom = (content.scrollHeight - content.clientHeight - content.scrollTop) < 5;
+        scrollPositions[blockId] = {
+          scrollHeight: scrollHeight,
+          isAtBottom: isAtBottom
+        };
+      }
     }
   });
 
@@ -641,8 +635,8 @@ function handleMorphdomUpdate(data) {
     {
       onBeforeElUpdated: function(fromEl, toEl) {
         // Preserve code highlighting
-        if (fromEl.tagName === "PRE" && fromEl.querySelector("code[data-highlighted]")) {
-          const fromCode = fromEl.querySelector("code");
+         if (fromEl.tagName === "PRE") {
+          const fromCode = fromEl.querySelector("code[data-highlighted]");
           const toCode = toEl.querySelector("code");
 
           if (fromCode && toCode && fromCode.textContent === toCode.textContent) {
