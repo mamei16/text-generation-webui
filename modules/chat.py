@@ -1099,13 +1099,6 @@ def chatbot_wrapper(text, state, regenerate=False, _continue=False, loading_mess
             'visible_content': output['visible'][row_idx][1]
         })
 
-    # When tool markers were detected during streaming, restore the last
-    # visible text from before buffering started so raw markup doesn't flash
-    # in the UI.  The internal text is left intact so the caller can still
-    # parse tool calls from it.
-    if is_stream and _check_tool_markers and streaming_tool_buffer_check(output['internal'][-1][1], markers=_streaming_markers, tool_names=_tool_names, check_bare_names=_check_bare_names):
-        output['visible'][-1][1] = _last_visible_before_tool_buffer or ''
-
     yield output
 
 
@@ -1421,12 +1414,6 @@ def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
         state['history'] = history
         _tool_turn += 1
 
-    # Ensure that the entire message is rendered
-    websocket_send(chat_html_wrapper(history, state['name1'], state['name2'], state['mode'],
-                                     state['chat_style'], state['character_menu'],
-                                     last_message_only=True),
-                   force_render=True)
-
     state.pop('_tool_turn', None)
 
     # If output extensions were deferred during tool turns, apply them now
@@ -1461,6 +1448,12 @@ def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
                 meta_entry['versions'][current_idx].update(version_update)
 
     save_history(history, state['unique_id'], state['character_menu'], state['mode'])
+
+    # Ensure that the entire message is rendered
+    websocket_send(chat_html_wrapper(history, state['name1'], state['name2'], state['mode'],
+                                     state['chat_style'], state['character_menu'],
+                                     last_message_only=True),
+                   force_render=True)
 
 
 def remove_last_message(history):
