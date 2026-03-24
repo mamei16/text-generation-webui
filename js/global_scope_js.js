@@ -337,11 +337,11 @@ if (!window.gradio_config.auth_required) {
         handleMorphdomUpdate(data);
     });
 }
-
+// True when forceRender is false
 let currentlyGenerating;
 let skipUIUpdatesDuringStreaming = true;
 
-// Only used in mutationObserver
+// True as long as model is processing or generating
 let isCurrentlyGenerating = false;
 
 let targetElement;
