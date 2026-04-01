@@ -356,7 +356,7 @@ const mutationObserver = new MutationObserver(function() {
             isCurrentlyGenerating = true;
             // Scroll to bottom after submitting a new message
             setTimeout(() => {
-                targetElement.scrollBy(0, 2**30);
+                targetElement.querySelector("#scrollAnchor").scrollIntoView()
             }, 200);
         }
     } else {
