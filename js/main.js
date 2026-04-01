@@ -397,9 +397,27 @@ function toggleBigPicture() {
 // Cache DOM elements
 const chatContainer = document.getElementById("chat").parentNode.parentNode.parentNode;
 const chatInput = document.querySelector("#chat-input textarea");
+const chatInputRow = document.querySelector("#chat-input-row");
 
 // Variables to store current dimensions
 let currentChatInputHeight = chatInput.clientHeight;
+
+// Adjust bottom margin of chat-parent to match input height
+const adjustChatMargin = () => {
+    const newHeight = chatInput.clientHeight;
+    if (newHeight !== currentChatInputHeight) {
+        targetElement.style.marginBottom = `${chatInputRow.clientHeight}px`;
+        currentChatInputHeight = newHeight;
+    }
+};
+
+// Use ResizeObserver to react to dynamic textarea expansion
+const inputObserver = new ResizeObserver(() => {
+    adjustChatMargin();
+});
+
+inputObserver.observe(chatInput);
+
 
 //------------------------------------------------
 // Focus on the rename text area when it becomes visible
