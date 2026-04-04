@@ -356,7 +356,8 @@ const mutationObserver = new MutationObserver(function() {
             isCurrentlyGenerating = true;
             // Scroll to bottom after submitting a new message
             setTimeout(() => {
-                targetElement.querySelector("#scrollAnchor").scrollIntoView()
+                scrollAnchor = targetElement.querySelector("#scrollAnchor");
+                if (scrollAnchor) scrollAnchor.scrollIntoView();
             }, 200);
         }
     } else {
@@ -648,8 +649,6 @@ function handleMorphdomUpdate(data) {
 
         // Preserve highlighted code paragraphs inside code blocks while generating
         if (!data.forceRender && fromEl.tagName === "DIV" && fromEl.parentElement.tagName === "CODE") {
-
-
           const toTextContent = toEl.textContent
           if (fromEl.textContent === toTextContent) {
             return false;
