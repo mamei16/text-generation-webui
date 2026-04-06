@@ -250,10 +250,7 @@ function toggleProgressBarDarkMode() {
 }
 
 
-function getColor(percentage) {
-    if (percentage == 0) return "rgba(0, 0, 0, 0)";
-
-    const bright_colors = [
+const bright_colors = [
         { stop: 0, color: [0, 123, 255] },
         { stop: 25, color: [0, 255, 0] },
         { stop: 50, color: [255, 255, 0] },
@@ -268,6 +265,10 @@ function getColor(percentage) {
         { stop: 75, color: [128, 82, 0] },      // Muted orange
         { stop: 100, color: [128, 0, 0] }       // Muted red
     ];
+
+function getColor(percentage) {
+    if (percentage == 0) return "rgba(0, 0, 0, 0)";
+
 
     const colors = darkModeEnabled()? muted_colors:bright_colors;
 
@@ -290,10 +291,11 @@ function getColor(percentage) {
     return `rgb(${r}, ${g}, ${b})`;
 }
 
+progressBar = document.querySelector('.progress-bar');
 
 function updateProgressBar(percentage) {
     if (percentage === undefined) percentage = 0;
-    const progressBar = document.querySelector('.progress-bar');
+    if (!progressBar) progressBar = document.querySelector('.progress-bar');
     progressBar.style.width = percentage + '%';
     progressBar.style.backgroundColor = getColor(percentage);
 }
@@ -346,6 +348,13 @@ let isCurrentlyGenerating = false;
 
 let targetElement;
 
+
+function scrollToBottom() {
+  scrollAnchor = targetElement.querySelector("#scrollAnchor");
+  if (scrollAnchor) scrollAnchor.scrollIntoView();
+  else setTimeout(scrollToBottom, 50);
+}
+
 // Create a MutationObserver instance
 const mutationObserver = new MutationObserver(function() {
     if (targetElement.classList.contains("_generating")) {
@@ -355,10 +364,7 @@ const mutationObserver = new MutationObserver(function() {
         if (!isCurrentlyGenerating) {
             isCurrentlyGenerating = true;
             // Scroll to bottom after submitting a new message
-            setTimeout(() => {
-                scrollAnchor = targetElement.querySelector("#scrollAnchor");
-                if (scrollAnchor) scrollAnchor.scrollIntoView();
-            }, 200);
+            setTimeout(scrollToBottom, 200);
         }
     } else {
         typing.parentNode.classList.remove("visible-dots");
@@ -497,6 +503,10 @@ function syntaxHighlightKatex(container) {
     }
 }
 
+mathContainerSelector = ":scope > p, :scope > td, :scope > ol, :scope > ul, "
+                            + ":scope > th, :scope > h1, :scope > h2, :scope > h3, :scope > h4, :scope > h5, :scope > h6, "
+                            + ":scope > blockquote, :scope > figcaption, :scope > caption, :scope > dd, :scope > dt"
+
 function doSyntaxHighlighting(targetMessageBody = null) {
     const messageBodies = targetMessageBody ? [targetMessageBody] : document.getElementById("chat").querySelectorAll(".message-body");
 
@@ -519,15 +529,9 @@ function doSyntaxHighlighting(targetMessageBody = null) {
                   //                  + "caption, dd, dt")
 
                   // Only render math in direct descendants of messageBody (not, e.g., in thinking-/code blocks)
-                  selectorString = ":scope > p, :scope > td, "
-                                 + ":scope > th, :scope > h1, :scope > h2, :scope > h3, :scope > h4, :scope > h5, :scope > h6, "
-                                 + ":scope > blockquote, :scope > figcaption, :scope > caption, :scope > dd, :scope > dt"
-                  // TODO: this is necessary to ensure morphdom doesn't invalidate rendered (nested) lists
-                  if (currentlyGenerating)
-                    selectorString += ", :scope > ol, :scope > ul"
-                  else
-                    selectorString += ", li"
-                  const mathContainers = messageBody.querySelectorAll(selectorString);
+                  if (!currentlyGenerating) mathContainerSelector += ", li"
+
+                  const mathContainers = messageBody.querySelectorAll(mathContainerSelector);
                   if (!mathContainers)
                       continue;
 
@@ -618,7 +622,6 @@ function handleMorphdomUpdate(data) {
   codeBlockIdx = 0;
   queryScope.querySelectorAll("code").forEach(block => {
     block.idx = codeBlockIdx;
-    const scrollHeight = block.scrollHeight;
     if (block.scrollTopMax)
       isAtBottom = (block.scrollTopMax - block.scrollTop) < 5;
     else
