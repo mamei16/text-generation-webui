@@ -167,13 +167,6 @@ class SaneOListProcessor(OListProcessor):
             firstitem = items.pop(0)
             self.parser.parseBlocks(li, [firstitem])
             self.parser.state.reset()
-        elif parent.tag in ['ol', 'ul']:
-            # this catches the edge case of a multi-item indented list whose
-            # first item is in a blank parent-list item:
-            #     * * subitem1
-            #         * subitem2
-            # see also `ListIndentProcessor`
-            lst = parent
         else:
             # This is a new list so create parent with appropriate tag.
             lst = etree.SubElement(parent, self.TAG)
@@ -186,8 +179,8 @@ class SaneOListProcessor(OListProcessor):
         # appropriate parent.
         for item in items:
             if item.startswith(" " * MIN_NESTED_LIST_INDENT):
-                # Item is indented. Parse with last item as parent
-                self.parser.parseBlocks(lst[-1], [item])
+                # Item is indented
+                self.parser.parseBlocks(lst, [item])
             else:
                 # New item. Create `li` and parse with it as parent
                 li = etree.SubElement(lst, 'li')
