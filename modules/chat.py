@@ -2512,7 +2512,7 @@ def handle_delete_template_click(template):
     return [
         f"{template}.yaml",
         "user_data/instruction-templates/",
-        gr.update(visible=False)
+        gr.update(visible=True)
     ]
 
 
