@@ -542,6 +542,18 @@ div.svelte-362y77>*, div.svelte-362y77>.form>* {
     list-style-type: disc !important;
 }
 
+.message-body ol, .message-body ul {
+    margin-top: 0 !important;
+}
+
+.message-body ol:not(:last-child), .message-body ul:not(:last-child) {
+    margin-bottom: 0.5em;
+}
+
+.message-body ol:has(+ p), .message-body ul:has(+ p) {
+    margin-bottom: 1.25em !important;
+}
+
 .message-body pre:not(:last-child) {
     margin-bottom: 35.625px !important;
 }
@@ -556,6 +568,7 @@ div.svelte-362y77>*, div.svelte-362y77>.form>* {
 
 .prose ul ul {
     margin: 0;
+    font-size: 0.9rem !important;
 }
 
 .message-body pre > code {
@@ -866,14 +879,6 @@ div.svelte-362y77>*, div.svelte-362y77>.form>* {
         margin-top: 32px;
         height: calc(100dvh - 32px);
     }
-}
-
-.message-body ol, .message-body ul {
-    margin-top: 0 !important;
-}
-
-.message-body ol:not(:last-child), .message-body ul:not(:last-child) {
-    margin-bottom: 1.25em !important;
 }
 
 /* Hide empty paragraphs that morphdom adds */

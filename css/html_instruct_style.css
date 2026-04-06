@@ -27,15 +27,15 @@
     border-color: #ffffff75 !important;
 }
 
-.chat .message-body :is(p, ul, ol) {
+.chat .message-body :is(p) {
     margin: 1.25em 0 !important;
 }
 
-.chat .message-body :is(p, ul, ol):first-child {
+.chat .message-body :is(p):first-child {
     margin-top: 0 !important;
 }
 
-.chat .message-body :is(p, ul, ol):last-child {
+.chat .message-body :is(p):last-child {
     margin-bottom: 0 !important;
 }
 
