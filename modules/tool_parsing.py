@@ -520,8 +520,11 @@ def _parse_gemma4_tool_calls(answer: str, tool_names: list[str]):
         # only applies outside string values (even-indexed parts),
         # then rejoin with real quotes.
         parts = content.split('<|"|>')
-        for idx in range(0, len(parts), 2):
-            parts[idx] = re.sub(r'(^|[{,\[])\s*(\w+)\s*:', r'\1"\2":', parts[idx])
+        for idx in range(0, len(parts)):
+            if idx % 2 == 0:
+                parts[idx] = re.sub(r'(^|[{,\[])\s*(\w+)\s*:', r'\1"\2":', parts[idx])
+            else:
+                parts[idx] = parts[idx].replace("\n", "\\n").replace('"', '\\"').replace("\\\\", "\\")
         json_str = '"'.join(parts)
 
         try:
