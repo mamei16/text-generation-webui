@@ -566,7 +566,7 @@ div.svelte-362y77>*, div.svelte-362y77>.form>* {
     overflow: scroll;
 }
 
-.prose ul ul {
+.prose ul ul, .prose ol ol, .prose ol ul, .prose ul ol {
     margin: 0;
     font-size: 0.9rem !important;
 }
