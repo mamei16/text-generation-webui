@@ -179,7 +179,7 @@ def create_event_handlers():
     shared.gradio['load_model'].click(
         ui.gather_interface_values, gradio(shared.input_elements), gradio('interface_state')).then(
         update_model_parameters, gradio('interface_state'), None).then(
-        update_model_status_indicator, gradio("model_status"), gradio("model_status_indicator"), show_progress=False).then(
+        update_model_status_indicator, None, gradio("model_status_indicator"), show_progress=False).then(
         partial(load_model_wrapper, autoload=True), gradio('model_menu', 'loader'), gradio('model_status'), show_progress=True).success(
         handle_load_model_event_final, gradio('truncation_length', 'loader', 'interface_state'), gradio('truncation_length', 'filter_by_loader'), show_progress=False).then(
         update_parameter_preset, gradio('default_param_preset', 'preset_menu'), gradio('preset_menu')).then(update_model_status_indicator, gradio("model_status"), gradio("model_status_indicator"), show_progress=False)
@@ -443,7 +443,7 @@ def update_parameter_preset(default_preset, current_preset):
 
 
 def update_model_status_indicator(model_load_result):
-    if model_load_result.startswith("###"):
+    if model_load_result is None or model_load_result.startswith("###"):
         html_string = 'Model status 🔵'
     elif model_load_result.startswith("Failed"):
         html_string = 'Model status 🔴'
