@@ -550,7 +550,7 @@ div.svelte-362y77>*, div.svelte-362y77>.form>* {
     margin-bottom: 0.5em;
 }
 
-.message-body ol:has(+ p), .message-body ul:has(+ p) {
+.message-body ol:has(+ p:not(:empty)), .message-body ul:has(+ p:not(:empty)) {
     margin-bottom: 1.25em !important;
 }
 
