@@ -339,6 +339,7 @@ if (!window.gradio_config.auth_required) {
         handleMorphdomUpdate(data);
     });
 }
+let customSvelteLoaded = false;
 // True when forceRender is false
 let currentlyGenerating;
 let skipUIUpdatesDuringStreaming = true;

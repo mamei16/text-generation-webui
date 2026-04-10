@@ -1,3 +1,4 @@
+customSvelteLoaded = true;
 /** @returns {void} */
 function noop() {}
 

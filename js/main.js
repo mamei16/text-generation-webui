@@ -2,6 +2,8 @@
 // Main
 // ------------------------------------------------
 
+if (!customSvelteLoaded) alert("Did not load custom svelte.js.\n\nTry temporarily disabling browser cache and reloaded the page.")
+
 // Sync highlight.js theme with the actual Gradio theme
 var defined_hljs_css = document.body.classList.contains("dark") ? "file/css/highlightjs/github-dark.min.css" : "file/css/highlightjs/github.min.css";
 if (document.getElementById("highlight-css").getAttribute("href") !== defined_hljs_css) {
