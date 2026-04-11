@@ -1,4 +1,4 @@
-customSvelteLoaded = true;
+if (typeof(customSvelteLoaded) !== "undefined") customSvelteLoaded = true;
 /** @returns {void} */
 function noop() {}
 
