@@ -172,16 +172,16 @@ def create_event_handlers():
     # with the model defaults (if any), and then the model is loaded
     shared.gradio['model_menu'].change(
         ui.gather_interface_values, gradio(shared.input_elements), gradio('interface_state')).then(
-        handle_load_model_event_initial, gradio('model_menu', 'interface_state'), gradio(ui.list_interface_input_elements()) + gradio('interface_state') + gradio('vram_info'), show_progress=False).then(
+        handle_load_model_event_initial, gradio('model_menu', 'interface_state'), gradio(ui.list_interface_input_elements()) + gradio('interface_state') + gradio('vram_info') + gradio('jinja_controls_separator'), show_progress=False).then(
         partial(load_model_wrapper, autoload=False), gradio('model_menu', 'loader'), gradio('model_status'), show_progress=True).success(
-        handle_load_model_event_final, gradio('truncation_length', 'loader', 'interface_state'), gradio('truncation_length', 'filter_by_loader'), show_progress=False)
+        handle_load_model_event_final, gradio('truncation_length', 'loader', 'interface_state'), gradio('truncation_length', 'filter_by_loader', 'jinja_controls_separator', 'reasoning_effort', 'enable_thinking'), show_progress=False)
 
     shared.gradio['load_model'].click(
         ui.gather_interface_values, gradio(shared.input_elements), gradio('interface_state')).then(
         update_model_parameters, gradio('interface_state'), None).then(
         init_model_status_indicator, None, gradio("model_status_indicator"), show_progress=False).then(
         partial(load_model_wrapper, autoload=True), gradio('model_menu', 'loader'), gradio('model_status'), show_progress=True).success(
-        handle_load_model_event_final, gradio('truncation_length', 'loader', 'interface_state'), gradio('truncation_length', 'filter_by_loader'), show_progress=False).then(
+        handle_load_model_event_final, gradio('truncation_length', 'loader', 'interface_state'), gradio('truncation_length', 'filter_by_loader', 'jinja_controls_separator', 'reasoning_effort', 'enable_thinking'), show_progress=False).then(
         update_parameter_preset, gradio('default_param_preset', 'preset_menu'), gradio('preset_menu')).then(update_model_status_indicator, gradio("model_status"), gradio("model_status_indicator"), show_progress=False)
 
     shared.gradio['unload_model'].click(handle_unload_model_click, None, gradio('model_status'), show_progress=False).then(
@@ -458,18 +458,24 @@ def update_model_status_indicator(model_load_result):
     return gr.HTML(value=html_string)
 
 
+
 def handle_load_model_event_initial(model, state):
     state = apply_model_settings_to_state(model, state)
     output = ui.apply_interface_values(state)
     update_model_parameters(state)  # This updates the command-line flags
 
+    show_separator, _, _ = utils.get_jinja_control_visibility(state.get('instruction_template_str', ''))
+
     vram_info = state.get('vram_info', "<div id=\"vram-info\"'>Estimated VRAM to load the model:</div>")
-    return output + [state] + [vram_info]
+    return output + [state] + [vram_info] + [gr.update(visible=show_separator)]
 
 
 def handle_load_model_event_final(truncation_length, loader, state):
     truncation_length = update_truncation_length(truncation_length, state)
-    return [truncation_length, loader]
+
+    show_separator, show_reasoning, show_thinking = utils.get_jinja_control_visibility(state.get('instruction_template_str', ''))
+
+    return [truncation_length, loader, gr.update(visible=show_separator), gr.update(visible=show_reasoning), gr.update(visible=show_thinking)]
 
 
 def handle_unload_model_click():
