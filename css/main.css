@@ -911,10 +911,6 @@ div.svelte-362y77>*, div.svelte-362y77>.form>* {
     z-index: 10;
 }
 
-#past-chats-row:not(.negative-header) {
-    max-width: calc(85vw - var(--header-width));
-}
-
 #chat-controls {
     padding: 1rem;
     padding-bottom: 0;
@@ -1149,6 +1145,7 @@ div.svelte-362y77>*, div.svelte-362y77>.form>* {
         position: fixed;
     }
 }
+
 
 /* ----------------------------------------------
   Dark theme
