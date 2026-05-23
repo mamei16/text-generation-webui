@@ -36,6 +36,7 @@ loaders_and_params = OrderedDict({
         'mmproj_accordion',
         'vram_info',
         'default_param_preset',
+        'default_speculative_coding'
     ],
     'Transformers': [
         'gpu_split',

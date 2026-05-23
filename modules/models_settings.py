@@ -174,6 +174,7 @@ def get_model_metadata(model):
         model_settings.pop('rope_freq_base')
 
     model_settings["default_param_preset"] = None
+    model_settings["default_speculative_coding"] = False
     # Apply user settings from user_data/models/config-user.yaml
     settings = shared.user_config
     for pat in settings:

@@ -1,6 +1,7 @@
 import copy
 import threading
 from pathlib import Path
+import functools
 
 import gradio as gr
 import yaml
@@ -118,14 +119,17 @@ if Path("user_data/notification.mp3").exists():
 else:
     audio_notification_js = ""
 
-
+@functools.cache
 def list_model_elements():
     elements = [
         'filter_by_loader',
         'loader',
         'default_param_preset',
+        'default_speculative_coding',
         'cpu_memory',
         'gpu_layers',
+        'fit_target',
+        #'cpu_moe',
         'threads',
         'threads_batch',
         'batch_size',
@@ -138,7 +142,7 @@ def list_model_elements():
         'gpu_split',
         'compute_dtype',
         'quant_type',
-        'num_experts_per_token',
+        #'num_experts_per_token',
         'load_in_8bit',
         'load_in_4bit',
         'attn_implementation',
@@ -149,14 +153,15 @@ def list_model_elements():
         'no_mmap',
         'mlock',
         'numa',
+        #'parallel',
         'use_double_quant',
         'bf16',
-        'autosplit',
+        #'autosplit',
         'enable_tp',
         'tp_backend',
-        'no_flash_attn',
-        'no_xformers',
-        'no_sdpa',
+        #'no_flash_attn',
+        #'no_xformers',
+        #'no_sdpa',
         'cfg_cache',
         'no_use_fast',
         'model_draft',
@@ -164,6 +169,10 @@ def list_model_elements():
         'gpu_layers_draft',
         'device_draft',
         'ctx_size_draft',
+        'spec_type',
+        'spec_ngram_size_n',
+        'spec_ngram_size_m',
+        'spec_ngram_min_hits',
         'mmproj',
     ]
 

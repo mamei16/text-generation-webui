@@ -44,7 +44,7 @@ def create_ui():
                     gr.Markdown("## Main options")
                     with gr.Row():
                         with gr.Column():
-                            shared.gradio['gpu_layers'] = gr.Slider(label="gpu-layers", minimum=0, maximum=get_initial_gpu_layers_max(), step=1, value=shared.args.gpu_layers, info='Must be greater than 0 for the GPU to be used. ⚠️ Lower this value if you can\'t load the model.')
+                            shared.gradio['gpu_layers'] = gr.Slider(label="gpu-layers", minimum=-1, maximum=get_initial_gpu_layers_max(), step=1, value=shared.args.gpu_layers, info='Must be greater than 0 for the GPU to be used. Set to -1 for llama.cpp to auto-adjust unset arguments to fit in device memory.')
                             shared.gradio['ctx_size'] = gr.Slider(label='ctx-size', minimum=256, maximum=131072, step=256, value=shared.args.ctx_size, info='Context length. Common values: 4096, 8192, 16384, 32768, 65536, 131072.')
                             shared.gradio['gpu_split'] = gr.Textbox(label='gpu-split', info='Comma-separated list of VRAM (in GB) to use per GPU. Example: 20,7,7')
                             shared.gradio['attn_implementation'] = gr.Dropdown(label="attn-implementation", choices=['sdpa', 'eager', 'flash_attention_2'], value=shared.args.attn_implementation, info='Attention implementation.')
@@ -70,6 +70,7 @@ def create_ui():
                                     ui.create_refresh_button(shared.gradio['mmproj'], lambda: None, lambda: {'choices': utils.get_available_mmproj()}, 'refresh-button', interactive=not mu)
 
                             # Speculative decoding
+                            shared.gradio['default_speculative_coding'] = gr.Checkbox(label="Use default speculative decoding config", value=shared.args.load_in_4bit)
                             with gr.Accordion("Speculative decoding", open=False, elem_classes='tgw-accordion') as shared.gradio['speculative_decoding_accordion']:
                                 with gr.Row():
                                     shared.gradio['model_draft'] = gr.Dropdown(label="model-draft", choices=['None'] + utils.get_available_models(), value=lambda: shared.args.model_draft, elem_classes='slim-dropdown', info='Draft model. Speculative decoding only works with models sharing the same vocabulary (e.g., same model family).', interactive=not mu)
@@ -101,8 +102,6 @@ def create_ui():
                                                                                  value=shared.args.spec_ngram_min_hits,
                                                                                  info='Minimum n-gram hits for ngram-map speculative decoding.',
                                                                                  visible=shared.args.spec_type != 'none')
-
-                            gr.Markdown("## Other options")
 
                     gr.Markdown("## Other options")
                     with gr.Accordion("See more options", open=True, elem_classes='tgw-accordion'):

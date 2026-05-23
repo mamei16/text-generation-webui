@@ -429,6 +429,8 @@ class LlamaServer:
 
             if path.exists():
                 cmd += ["--mmproj", str(path)]
+        if shared.args.default_speculative_coding:
+            cmd += ["--spec-default"]
         if shared.args.model_draft not in [None, 'None']:
             path = resolve_model_path(shared.args.model_draft)
 
