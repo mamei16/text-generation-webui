@@ -87,21 +87,6 @@ def create_ui():
                                                                                   'ngram-cache'],
                                                                          value=shared.args.spec_type,
                                                                          info='Draftless speculative decoding type. Recommended: ngram-mod.')
-                                shared.gradio['spec_ngram_size_n'] = gr.Number(label="spec-ngram-size-n", precision=0,
-                                                                               step=1,
-                                                                               value=shared.args.spec_ngram_size_n,
-                                                                               info='N-gram lookup size for speculative decoding.',
-                                                                               visible=shared.args.spec_type != 'none')
-                                shared.gradio['spec_ngram_size_m'] = gr.Number(label="spec-ngram-size-m", precision=0,
-                                                                               step=1,
-                                                                               value=shared.args.spec_ngram_size_m,
-                                                                               info='Draft n-gram size for speculative decoding.',
-                                                                               visible=shared.args.spec_type != 'none')
-                                shared.gradio['spec_ngram_min_hits'] = gr.Number(label="spec-ngram-min-hits",
-                                                                                 precision=0, step=1,
-                                                                                 value=shared.args.spec_ngram_min_hits,
-                                                                                 info='Minimum n-gram hits for ngram-map speculative decoding.',
-                                                                                 visible=shared.args.spec_type != 'none')
 
                     gr.Markdown("## Other options")
                     with gr.Accordion("See more options", open=True, elem_classes='tgw-accordion'):

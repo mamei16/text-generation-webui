@@ -170,9 +170,6 @@ def list_model_elements():
         'device_draft',
         'ctx_size_draft',
         'spec_type',
-        'spec_ngram_size_n',
-        'spec_ngram_size_m',
-        'spec_ngram_min_hits',
         'mmproj',
     ]
 
