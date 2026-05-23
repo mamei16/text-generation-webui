@@ -70,7 +70,7 @@ def create_ui():
                                     ui.create_refresh_button(shared.gradio['mmproj'], lambda: None, lambda: {'choices': utils.get_available_mmproj()}, 'refresh-button', interactive=not mu)
 
                             # Speculative decoding
-                            shared.gradio['default_speculative_coding'] = gr.Checkbox(label="Use default speculative decoding config", value=shared.args.load_in_4bit)
+                            shared.gradio['default_speculative_coding'] = gr.Checkbox(label="Use default n-gram speculative decoding config", value=shared.args.load_in_4bit)
                             with gr.Accordion("Speculative decoding", open=False, elem_classes='tgw-accordion') as shared.gradio['speculative_decoding_accordion']:
                                 with gr.Row():
                                     shared.gradio['model_draft'] = gr.Dropdown(label="model-draft", choices=['None'] + utils.get_available_models(), value=lambda: shared.args.model_draft, elem_classes='slim-dropdown', info='Draft model. Speculative decoding only works with models sharing the same vocabulary (e.g., same model family).', interactive=not mu)
