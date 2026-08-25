@@ -1373,6 +1373,17 @@ div.svelte-362y77>*, div.svelte-362y77>.form>* {
     overflow: hidden;
 }
 
+/* Reduce code block inner padding during generation to avoid tokens "flying in" from the bottom  */
+.thinking-block pre > code:not([data-highlighted]) {
+    display: block;
+    padding: 1px 5px;
+}
+
+/* Avoid bottom code block border flickering in and out of view during generation */
+.thinking-block pre:last-child > code:not([data-highlighted]) {
+    border-bottom: 0px;
+}
+
 .dark .thinking-block {
     background-color: var(--darker-gray);
 }
