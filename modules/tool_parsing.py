@@ -743,6 +743,8 @@ def parse_tool_call(answer: str, tool_names: list[str], return_prefix: bool = Fa
                 continue
 
             for candidate_dict in candidates:
+                if not isinstance(candidate_dict, dict):
+                    continue
                 checked_candidate = check_and_sanitize_tool_call_candidate(candidate_dict, tool_names)
                 if checked_candidate is not None:
                     if start_pos is None:
