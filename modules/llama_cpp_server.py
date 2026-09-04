@@ -258,6 +258,12 @@ class LlamaServer:
                         progress_dict = data["prompt_progress"]
                         n_processed_tokens = progress_dict["processed"]
                         n_total_tokens = progress_dict["total"]
+
+                        if "cache" in progress_dict:
+                            n_cached_tokens = progress_dict["cache"]
+                            n_processed_tokens -= n_cached_tokens
+                            n_total_tokens -= n_cached_tokens
+
                         percent_processed = int((n_processed_tokens / n_total_tokens) * 100)
                         rate = n_processed_tokens / (time.monotonic()-start_time)
                         remaining = (n_total_tokens - n_processed_tokens) / rate if rate else 0
