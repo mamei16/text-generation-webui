@@ -201,8 +201,6 @@ def _parse_mistral_token_tool_calls(answer: str, tool_names: list[str]):
         answer
     ):
         func_name = m.group(1).strip()
-        if func_name not in tool_names:
-            continue
         json_str = _extract_balanced_json(answer, m.end())
         if json_str is None:
             continue
@@ -281,8 +279,6 @@ def _parse_xml_param_tool_calls(answer: str, tool_names: list[str]):
         if not func_match:
             continue
         func_name = func_match.group(1).strip()
-        if func_name not in tool_names:
-            continue
         arguments = {}
         for param_match in re.finditer(r'<parameter=([^>]+)>\s*(.*?)\s*</parameter>', tc_content, re.DOTALL):
             param_name = param_match.group(1).strip()
@@ -319,8 +315,6 @@ def _parse_kimi_tool_calls(answer: str, tool_names: list[str]):
         answer
     ):
         func_name = m.group(1).strip()
-        if func_name not in tool_names:
-            continue
         json_str = _extract_balanced_json(answer, m.end())
         if json_str is None:
             continue
@@ -396,8 +390,6 @@ def _parse_deep_seek_tool_calls(answer: str, tool_names: list[str]):
         answer
     ):
         func_name = m.group(1).strip()
-        if func_name not in tool_names:
-            continue
         json_str = _extract_balanced_json(answer, m.end())
         if json_str is None:
             continue
@@ -437,8 +429,6 @@ def _parse_glm_tool_calls(answer: str, tool_names: list[str]):
         if not name_match:
             continue
         func_name = name_match.group(1).strip()
-        if func_name not in tool_names:
-            continue
         # Extract arg_key/arg_value pairs
         keys = [k.group(1).strip() for k in re.finditer(r'<arg_key>\s*(.*?)\s*</arg_key>', tc_content, re.DOTALL)]
         vals = [v.group(1).strip() for v in re.finditer(r'<arg_value>\s*(.*?)\s*</arg_value>', tc_content, re.DOTALL)]
@@ -505,8 +495,6 @@ def _parse_gemma4_tool_calls(answer: str, tool_names: list[str]):
 
     for m in re.finditer(r'<\|tool_call>call:([^\s{]+)\s*', answer):
         func_name = m.group(1).strip()
-        if func_name not in tool_names:
-            continue
 
         brace_start = m.end()
         if brace_start >= len(answer) or answer[brace_start] != '{':

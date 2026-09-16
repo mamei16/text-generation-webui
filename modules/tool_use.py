@@ -59,7 +59,8 @@ def execute_tool(func_name, arguments, executors):
     """Execute a tool by function name. Returns result as a JSON string."""
     fn = executors.get(func_name)
     if fn is None:
-        return json.dumps({"error": f"Unknown tool: {func_name}"})
+        return json.dumps({"error": f"Unknown tool/function: '{func_name}'. "
+                                    f"Available tools/functions: " + ", ".join(executors.keys())})
 
     try:
         if isinstance(arguments, str):
