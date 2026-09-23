@@ -384,6 +384,10 @@ class LlamaServer:
         if self.server_path is None:
             self.server_path = llama_cpp_binaries.get_binary_path()
 
+        # Ensure that llama-server won't generate random media marker like
+        # "<__media_WdfrlAZWhC50T01kvQUnCuZGFR4AhqND__>" for each request
+        os.environ['LLAMA_MEDIA_MARKER'] = '<__media__>'
+
         # Build the command
         cmd = [
             self.server_path,
