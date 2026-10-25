@@ -7,7 +7,7 @@ import regex as re
 import time
 from pathlib import Path
 
-import markdown
+from markdown import Markdown
 from PIL import Image, ImageOps
 
 from modules import shared
@@ -18,6 +18,18 @@ from modules.tool_parsing import streaming_tool_start_idx_check
 
 # This is to store the paths to the thumbnails of the profile pictures
 image_cache = {}
+
+class MarkDownConverter:
+    def __init__(self):
+        self.md = Markdown(extensions=['fenced_code', 'tables', SaneListExtension()])
+
+    def convert(self, source):
+        # Should be called manually between calls to Markdown.convert.
+        self.md.reset()
+        return self.md.convert(source)
+
+
+_md = MarkDownConverter()
 
 
 def minify_css(css: str) -> str:
@@ -153,14 +165,18 @@ def build_thinking_block(thinking_content, message_id, has_remaining_content, th
     if thinking_content is None:
         return None
 
+    # Check if thinking is complete or still in progress
+    is_streaming = not has_remaining_content
+
     # Process the thinking content through markdown
-    thinking_html = process_markdown_content(thinking_content)
+    if is_streaming:
+        thinking_html = process_markdown_content(thinking_content)
+    else:
+        thinking_html = cached_process_markdown_content(thinking_content)
 
     # Generate unique ID for the thinking block
     block_id = f"thinking-{message_id}-{thinking_index}"
 
-    # Check if thinking is complete or still in progress
-    is_streaming = not has_remaining_content
     title_text = "Thinking..." if is_streaming else "Thought"
 
     return f'''
@@ -174,12 +190,15 @@ def build_thinking_block(thinking_content, message_id, has_remaining_content, th
     '''
 
 
-def build_main_content_block(content):
+def build_main_content_block(content, is_complete):
     """Build HTML for the main content block."""
     if not content:
         return ""
 
-    return process_markdown_content(content)
+    if is_complete:
+        return cached_process_markdown_content(content)
+    else:
+        return process_markdown_content(content)
 
 
 @functools.lru_cache(maxsize=None)
@@ -205,6 +224,7 @@ def convert_to_markdown(string, message_id=None):
         # No tool calls — use original single-pass extraction
         thinking_contents, remaining_contents = extract_thinking_block(string)
         blocks = []
+        num_thinking_blocks = len(thinking_contents)
         for i, (thinking_content, remaining_content) in enumerate(zip_longest(thinking_contents, remaining_contents)):
             thinking_html = build_thinking_block(thinking_content, message_id, bool(remaining_content),
                                                  thinking_index=i)
@@ -213,13 +233,13 @@ def convert_to_markdown(string, message_id=None):
 
             tool_call_idx, tool_call_prefix_len = streaming_tool_start_idx_check(remaining_content)
             if tool_call_idx is not None:
-                main_html = build_main_content_block(remaining_content[:tool_call_idx])
+                main_html = build_main_content_block(remaining_content[:tool_call_idx], True)
                 if main_html:
                     blocks.append(main_html)
                 blocks.append(build_tool_call_block(remaining_content[tool_call_idx + tool_call_prefix_len:],
                                                     "...", message_id, -1, escape_html=False))
             else:
-                main_html = build_main_content_block(remaining_content)
+                main_html = build_main_content_block(remaining_content, is_complete=i + 1 < num_thinking_blocks)
                 if main_html:
                     blocks.append(main_html)
 
@@ -311,6 +331,10 @@ def wrap_code_block_paragraphs(html_string):
 
     return pattern.sub(replace_code_block, html_string)
 
+
+@functools.lru_cache(maxsize=512)
+def cached_process_markdown_content(string):
+    return process_markdown_content(string)
 
 def process_markdown_content(string):
     """Process a string through the markdown conversion pipeline."""
@@ -429,7 +453,7 @@ def process_markdown_content(string):
         result = re.sub(list_item_pattern, r'\g<1> ' + delete_str, result)
 
         # Convert to HTML using markdown
-        html_output = markdown.markdown(result, extensions=['fenced_code', 'tables', SaneListExtension()])
+        html_output = _md.convert(result)
 
         # Remove the delete string from the HTML output
         pos = html_output.rfind(delete_str)
@@ -437,7 +461,7 @@ def process_markdown_content(string):
             html_output = html_output[:pos] + html_output[pos + len(delete_str):]
     else:
         # Convert to HTML using markdown
-        html_output = markdown.markdown(result, extensions=['fenced_code', 'tables', SaneListExtension()])
+        html_output = _md.convert(result)
 
     # Restore the LaTeX asterisks and underscores after markdown conversion
     html_output = html_output.replace(LATEX_ASTERISK_PLACEHOLDER, '*')

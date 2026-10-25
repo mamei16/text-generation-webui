@@ -26,7 +26,7 @@ from modules.html_generator import (
     chat_html_wrapper,
     convert_to_markdown,
     extract_thinking_block,
-    make_thumbnail
+    make_thumbnail, cached_process_markdown_content
 )
 from modules.logging_colors import logger
 from modules.reasoning import THINKING_FORMATS
@@ -1257,6 +1257,11 @@ def generate_chat_reply_wrapper(text, state, regenerate=False, _continue=False):
         _continue = True
         send_dummy_message(text, state)
         send_dummy_reply(state['start_with'], state)
+
+
+    if not _continue:
+        # Clear message-level markdown conversion cache
+        cached_process_markdown_content.cache_clear()
 
     # On regenerate, clear old tool_sequence metadata so it gets rebuilt.
     # Save it first so it can be stored per-version below.
