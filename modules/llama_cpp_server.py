@@ -417,7 +417,7 @@ class LlamaServer:
         if shared.args.threads_batch > 0:
             cmd += ["--threads-batch", str(shared.args.threads_batch)]
         if shared.args.no_mmap:
-            cmd.append("--no-mmap")
+            cmd += ["--load-mode", "none"]
         if shared.args.mlock:
             cmd.append("--mlock")
         if shared.args.tensor_split:
