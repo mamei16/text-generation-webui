@@ -231,17 +231,18 @@ def convert_to_markdown(string, message_id=None):
             if thinking_html:
                 blocks.append(thinking_html)
 
-            tool_call_idx, tool_call_prefix_len = streaming_tool_start_idx_check(remaining_content)
-            if tool_call_idx is not None:
-                main_html = build_main_content_block(remaining_content[:tool_call_idx], True)
-                if main_html:
-                    blocks.append(main_html)
-                blocks.append(build_tool_call_block(remaining_content[tool_call_idx + tool_call_prefix_len:],
-                                                    "...", message_id, -1, escape_html=False))
-            else:
-                main_html = build_main_content_block(remaining_content, is_complete=i + 1 < num_thinking_blocks)
-                if main_html:
-                    blocks.append(main_html)
+            if remaining_content:
+                tool_call_idx, tool_call_prefix_len = streaming_tool_start_idx_check(remaining_content)
+                if tool_call_idx is not None:
+                    main_html = build_main_content_block(remaining_content[:tool_call_idx], True)
+                    if main_html:
+                        blocks.append(main_html)
+                    blocks.append(build_tool_call_block(remaining_content[tool_call_idx + tool_call_prefix_len:],
+                                                        "...", message_id, -1, escape_html=False))
+                else:
+                    main_html = build_main_content_block(remaining_content, is_complete=i + 1 < num_thinking_blocks)
+                    if main_html:
+                        blocks.append(main_html)
 
         return ''.join(blocks)
 

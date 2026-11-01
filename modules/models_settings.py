@@ -10,7 +10,7 @@ import yaml
 
 from modules import chat, loaders, metadata_gguf, shared, ui
 from modules.logging_colors import logger
-from modules.utils import resolve_model_path
+from modules.utils import resolve_model_path, strata_gguf_path_from_config_path
 
 
 def get_fallback_settings():
@@ -49,7 +49,10 @@ def get_model_metadata(model):
         )
 
     # GGUF metadata
-    if model_settings['loader'] == 'llama.cpp':
+    if model_settings['loader'] == 'llama.cpp' or model_settings['loader'] == 'Strata':
+        if model_settings['loader'] == 'Strata':
+            # extract strata path and model gguf path from config
+            model_path = strata_gguf_path_from_config_path(model_path)
         path = model_path
         if path.is_file():
             model_file = path
@@ -211,6 +214,8 @@ def infer_loader(model_name, model_settings, hf_quant_method=None):
         loader = 'ExLlamav3'
     elif re.match(r'.*exl2', model_name.lower()):
         loader = 'ExLlamav2_HF'
+    elif re.match(r'strata-.*\.json', model_name.lower()):
+        loader = 'Strata'
     else:
         loader = 'Transformers'
 

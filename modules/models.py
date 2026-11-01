@@ -23,6 +23,7 @@ def load_model(model_name, loader=None):
         'ExLlamav2_HF': ExLlamav2_HF_loader,
         'ExLlamav2': ExLlamav2_loader,
         'TensorRT-LLM': TensorRT_LLM_loader,
+        'Strata': strata_loader,
     }
 
     metadata = get_model_metadata(model_name)
@@ -66,6 +67,18 @@ def load_model(model_name, loader=None):
     logger.info(f"INSTRUCTION TEMPLATE: \"{metadata['instruction_template']}\"")
     return model, tokenizer
 
+
+def strata_loader(model_name):
+    from modules.strata_loader import StrataLoader
+
+    model_file = resolve_model_path(model_name)
+    try:
+        model = StrataLoader(model_file)
+        return model, None  # Second return value would be tokenizer
+    except Exception as e:
+        logger.error(f"Error loading the model with strata: {str(e)}")
+        raise e
+        return None, None
 
 def llama_cpp_server_loader(model_name):
     from modules.llama_cpp_server import LlamaServer

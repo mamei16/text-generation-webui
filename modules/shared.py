@@ -93,6 +93,11 @@ group.add_argument('--numa', action='store_true', help='Activate NUMA task alloc
 group.add_argument('--fit-target', type=str, default='512', help='Target VRAM margin per device for auto GPU layers, comma-separated list of values in MiB. A single value is broadcast across all devices.')
 group.add_argument('--extra-flags', type=str, default=None, help='Extra flags to pass to llama-server. Format: "flag1=value1,flag2,flag3=value3". Example: "override-tensor=exps=CPU"')
 
+
+# Strata
+group = parser.add_argument_group('Strata')
+group.add_argument('--mmap-experts', action='store_true', help='Memory-map experts instead of (off-)loading them into RAM')
+
 # Transformers/Accelerate
 group = parser.add_argument_group('Transformers/Accelerate')
 group.add_argument('--cpu', action='store_true', help='Use the CPU to generate text. Warning: Training on CPU is extremely slow.')

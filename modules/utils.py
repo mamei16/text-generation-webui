@@ -2,6 +2,7 @@ import os
 import re
 from datetime import datetime
 from pathlib import Path
+import json
 
 from modules import shared
 from modules.logging_colors import logger
@@ -121,6 +122,9 @@ def resolve_model_path(model_name_or_path, image_model=False):
 
 
 def get_available_models():
+    # Get all strata config files
+    strata_config_files = [os.path.basename(config_path) for config_path in get_available_strata_configs()]
+
     # Get all GGUF files
     gguf_files = get_available_ggufs()
 
@@ -171,8 +175,19 @@ def get_available_models():
 
     model_dirs = sorted(model_dirs, key=natural_keys)
 
-    return filtered_gguf_files + model_dirs
+    return strata_config_files + filtered_gguf_files + model_dirs
 
+def strata_gguf_path_from_config_path(config_path):
+    with open(config_path, "r") as f:
+        config = json.load(f)
+    strata_path = config.get("cwd")
+    arg_list = config.get("args")
+    model_gguf_index = arg_list.index("--native") + 1
+    gguf_filename = Path(arg_list[model_gguf_index])
+    if gguf_filename.is_absolute():
+        return gguf_filename
+    else:
+        return Path(strata_path) / gguf_filename
 
 def get_available_image_models():
     model_dir = Path(shared.args.image_model_dir)
@@ -199,6 +214,19 @@ def get_available_ggufs():
     for dirpath, _, files in os.walk(model_dir, followlinks=True):
         for file in files:
             if file.lower().endswith(".gguf"):
+                model_path = Path(dirpath) / file
+                rel_path = model_path.relative_to(model_dir)
+                model_list.append(str(rel_path))
+
+    return sorted(model_list, key=natural_keys)
+
+def get_available_strata_configs():
+    model_list = []
+    model_dir = Path(shared.args.model_dir)
+
+    for dirpath, _, files in os.walk(model_dir, followlinks=True):
+        for file in files:
+            if file.lower().startswith("strata-") and file.lower().endswith(".json"):
                 model_path = Path(dirpath) / file
                 rel_path = model_path.relative_to(model_dir)
                 model_list.append(str(rel_path))

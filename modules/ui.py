@@ -171,6 +171,7 @@ def list_model_elements():
         'ctx_size_draft',
         'spec_type',
         'mmproj',
+        'mmap_experts'
     ]
 
     return elements

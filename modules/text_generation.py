@@ -39,8 +39,8 @@ def _generate_reply(question, state, stopping_strings=None, is_chat=False, escap
         if not model_is_loaded:
             yield ''
             return
-
-        if shared.model.__class__.__name__ in ['LlamaServer', 'Exllamav2Model', 'Exllamav3Model', 'TensorRTLLMModel']:
+        if shared.model.__class__.__name__ in ['LlamaServer', 'Exllamav2Model', 'Exllamav3Model', 'TensorRTLLMModel',
+                                               'StrataLoader']:
             generate_func = generate_reply_custom
         else:
             generate_func = generate_reply_HF
@@ -497,7 +497,10 @@ def generate_reply_custom(question, original_question, state, stopping_strings=N
 
         if hasattr(shared.model, 'last_prompt_token_count'):
             original_tokens = shared.model.last_prompt_token_count
-            new_tokens = len(encode(reply)[0]) if reply else 0
+            if hasattr(shared.model, 'tokens_predicted'):
+                new_tokens = shared.model.tokens_predicted
+            else:
+                new_tokens = len(encode(reply)[0]) if reply else 0
         else:
             original_tokens = len(encode(original_question)[0])
             new_tokens = len(encode(original_question + reply)[0]) - original_tokens

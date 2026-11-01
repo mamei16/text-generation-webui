@@ -4,6 +4,12 @@ from collections import OrderedDict
 import gradio as gr
 
 loaders_and_params = OrderedDict({
+    'Strata': [
+        'ctx_size',
+        'cache_type',
+        'default_param_preset',
+        'mmap_experts'
+    ],
     'llama.cpp': [
         'gpu_layers',
         'fit_target',
@@ -347,6 +353,17 @@ loaders_samplers = {
         'presence_penalty',
         'auto_max_new_tokens',
         'ban_eos_token',
+    },
+    'Strata': {
+        'temperature',
+        'top_p',
+        'top_k',
+        'min_p',
+        'seed',
+        'repetition_penalty',
+        'frequency_penalty',
+        'presence_penalty',
+        'repetition_penalty_range',
     }
 }
 
