@@ -92,7 +92,6 @@ class StrataLoader:
         """Check if this model supports multimodal input."""
         return shared.args.mmproj not in [None, 'None']
 
-
     def max_tokens(self, prompt_ids):
         ctx = self.engine.max_context
 
@@ -235,7 +234,6 @@ class StrataLoader:
                     and not request_stats(segments).get("finish") == "cancel"):
                     ids.extend(raw_ids)
                     ids.append(self.think_end_tok_id)
-                    max_new_tokens -= 1
                     logger.warning(f"[strata] Model stopped early during reasoning. Continuing output.")
                 else:
                     break
@@ -322,6 +320,10 @@ class StrataLoader:
         with open(self.model_path, "r") as f:
             cfg = json.load(f)
 
+        pretokenizer = "qwen35"
+        if "gemma" in self.model_path.as_posix().lower():
+            pretokenizer = "gemma4"
+
         self.tok = ByteTokenizer()
         tpath = Path(cfg.get("tokenizer"))
         if not (tpath / "vocab.json").exists():
@@ -332,9 +334,14 @@ class StrataLoader:
             tokens = [None] * len(vocab)
             for t, i in vocab.items():
                 tokens[i] = t
-            merges = (tpath / "merges.txt").read_text(encoding="utf-8").split("\n")
+            if (tpath / "merges.txt").exists():
+                merges = (tpath / "merges.txt").read_text(encoding="utf-8").split("\n")
+            elif (tpath / "merges.json").exists():
+                merges = json.loads((tpath / "merges.json").read_text(encoding="utf-8"))
+            else:
+                raise ValueError(f"the strata model's tokenizer is missing a 'merges' file. Can't proceed.")
             types = json.loads((tpath / "token_type.json").read_text())
-            self.tok = ST.Tokenizer(tokens, merges, types)
+            self.tok = ST.Tokenizer(tokens, merges, types, pre=pretokenizer)
 
         self.think_end_tok_id = self.encode(THINK_END)[0]
         self.eos_tok_id = self.encode(EOS_TOK)[0]
@@ -358,7 +365,7 @@ class StrataLoader:
         if shared.args.mmap_experts and "--mmap-experts" not in args:
             args.append("--mmap-experts")
 
-        self.engine = StrataEngine(cfg["exe"], cfg["args"], cwd=cfg.get("cwd"), log=cfg.get("log"), env=cfg.get("env"))
+        self.engine = StrataEngine(cfg["exe"], args, cwd=cfg.get("cwd"), log=cfg.get("log"), env=cfg.get("env"))
 
     def __enter__(self):
         """Support for context manager."""

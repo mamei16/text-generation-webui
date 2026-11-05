@@ -182,7 +182,10 @@ def strata_gguf_path_from_config_path(config_path):
         config = json.load(f)
     strata_path = config.get("cwd")
     arg_list = config.get("args")
-    model_gguf_index = arg_list.index("--native") + 1
+    if "--native" in arg_list:   # Regular Strata
+        model_gguf_index = arg_list.index("--native") + 1
+    else:      # PolyStrata
+        model_gguf_index = arg_list.index("--model") + 1
     gguf_filename = Path(arg_list[model_gguf_index])
     if gguf_filename.is_absolute():
         return gguf_filename
