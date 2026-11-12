@@ -7,7 +7,6 @@ import regex as re
 import time
 from pathlib import Path
 
-from markdown import Markdown
 from PIL import Image, ImageOps
 
 from modules import shared
@@ -15,13 +14,14 @@ from modules.reasoning import extract_reasoning
 from modules.sane_markdown_lists import SaneListExtension
 from modules.utils import get_available_chat_styles
 from modules.tool_parsing import streaming_tool_start_idx_check
+from modules.cached_markdown import CachedMarkdown
 
 # This is to store the paths to the thumbnails of the profile pictures
 image_cache = {}
 
 class MarkDownConverter:
     def __init__(self):
-        self.md = Markdown(extensions=['fenced_code', 'tables', SaneListExtension()])
+        self.md = CachedMarkdown(extensions=['fenced_code', 'tables', SaneListExtension()])
 
     def convert(self, source):
         # Should be called manually between calls to Markdown.convert.
